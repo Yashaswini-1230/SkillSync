@@ -8,6 +8,7 @@ const UploadResume = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -27,7 +28,7 @@ const UploadResume = () => {
     }
   };
 
-  const handleFileSelect = async (file) => {
+  const handleFileSelect = (file) => {
     if (!file) return;
 
     const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
@@ -41,7 +42,17 @@ const UploadResume = () => {
       return;
     }
 
-    await uploadFile(file);
+    setSelectedFile(file);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file first');
+      return;
+    }
+
+    await uploadFile(selectedFile);
+    setSelectedFile(null);
   };
 
   const uploadFile = async (file) => {
@@ -106,48 +117,85 @@ const UploadResume = () => {
   }
 
   return (
-    <div className="min-h-screen pt-16 md:ml-64 px-4 py-8 pb-20">
+    <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Upload Resume</h1>
 
         {/* Upload Area */}
-        <div
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
-            dragActive
-              ? 'border-primary-500 bg-primary-50'
-              : 'border-gray-300 hover:border-primary-400'
-          } ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-        >
-          <input
-            type="file"
-            id="file-upload"
-            accept=".pdf,.docx,.doc"
-            onChange={(e) => handleFileSelect(e.target.files[0])}
-            className="hidden"
-            disabled={uploading}
-          />
-          <label htmlFor="file-upload" className="cursor-pointer">
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
-                <FiUpload size={32} className="text-primary-600" />
+        <div className="space-y-6">
+          <div
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
+              dragActive
+                ? 'border-primary-500 bg-primary-50'
+                : 'border-gray-300 hover:border-primary-400'
+            } ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            <input
+              type="file"
+              id="file-upload"
+              accept=".pdf,.docx,.doc"
+              onChange={(e) => handleFileSelect(e.target.files[0])}
+              className="hidden"
+              disabled={uploading}
+            />
+            <label htmlFor="file-upload" className="cursor-pointer">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                  <FiUpload size={32} className="text-primary-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  {uploading ? 'Uploading...' : 'Select your resume file'}
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Choose a PDF or DOCX file (up to 10MB)
+                </p>
+                {!uploading && (
+                  <button className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors">
+                    Browse Files
+                  </button>
+                )}
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {uploading ? 'Uploading...' : 'Drag & drop your resume here'}
-              </h3>
-              <p className="text-gray-600 mb-4">
-                or click to browse (PDF, DOCX up to 10MB)
-              </p>
-              {!uploading && (
-                <button className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors">
-                  Select File
-                </button>
-              )}
+            </label>
+          </div>
+
+          {/* Selected File Display */}
+          {selectedFile && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <FiFile className="text-blue-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-blue-900">{selectedFile.name}</p>
+                    <p className="text-sm text-blue-600">
+                      {(selectedFile.size / 1024).toFixed(2)} KB • Ready to upload
+                    </p>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setSelectedFile(null)}
+                    className="text-gray-500 hover:text-gray-700 p-2"
+                    title="Remove file"
+                  >
+                    ✕
+                  </button>
+                  <button
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? 'Uploading...' : 'Upload Resume'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </label>
+          )}
         </div>
 
         {/* Resumes List */}

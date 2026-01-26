@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import Chatbot from './components/Chatbot';
 
 // Pages
 import Signup from './pages/Signup';
@@ -13,6 +14,7 @@ import Dashboard from './pages/Dashboard';
 import UploadResume from './pages/UploadResume';
 import AnalyzeResume from './pages/AnalyzeResume';
 import ResumeBuilder from './pages/ResumeBuilder';
+import SavedResumes from './pages/SavedResumes';
 import InterviewPrep from './pages/InterviewPrep';
 import Profile from './pages/Profile';
 
@@ -24,6 +26,7 @@ function App() {
           <Toaster position="top-right" />
           <Navbar />
           <Sidebar />
+          <Chatbot />
           <Routes>
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
@@ -56,6 +59,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <ResumeBuilder />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/saved-resumes"
+              element={
+                <PrivateRoute>
+                  <SavedResumes />
                 </PrivateRoute>
               }
             />

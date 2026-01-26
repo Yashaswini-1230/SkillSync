@@ -50,11 +50,15 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 px-4 pt-16">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-primary-25 to-primary-100 px-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-600 mb-2">SkillSync</h1>
-          <h2 className="text-xl text-gray-700">Welcome back</h2>
+          <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl font-bold text-white">SS</span>
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent mb-2">SkillSync</h1>
+          <h2 className="text-xl text-gray-700 font-medium">Welcome back</h2>
+          <p className="text-gray-500 mt-2">Sign in to continue optimizing your resume</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -68,8 +72,8 @@ const Login = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                errors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'
+              className={`input-enhanced ${
+                errors.email ? 'border-red-500 focus:ring-red-500' : ''
               }`}
               placeholder="john@example.com"
             />
@@ -86,8 +90,8 @@ const Login = () => {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                errors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'
+              className={`input-enhanced ${
+                errors.password ? 'border-red-500 focus:ring-red-500' : ''
               }`}
               placeholder="••••••••"
             />
@@ -96,9 +100,9 @@ const Login = () => {
 
           <button
             type="submit"
-            className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            className="w-full btn-primary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
           >
-            Log In
+            Sign In
           </button>
         </form>
 

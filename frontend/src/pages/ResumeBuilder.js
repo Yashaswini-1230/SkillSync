@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { FiSave, FiDownload, FiPlus, FiTrash2 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import axios from 'axios';
+import TemplatePreview from '../components/TemplatePreview';
 
 const ResumeBuilder = () => {
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [currentStep, setCurrentStep] = useState('template'); // 'template', 'preview', or 'edit'
   const [resumeData, setResumeData] = useState({
     personalInfo: {
       name: '',
@@ -13,32 +18,117 @@ const ResumeBuilder = () => {
       github: ''
     },
     summary: '',
-    skills: [],
+    skills: {
+      technical: [],
+      soft: []
+    },
     experience: [],
     education: [],
     projects: [],
     certifications: []
   });
 
-  const [newSkill, setNewSkill] = useState('');
+  const [newTechnicalSkill, setNewTechnicalSkill] = useState('');
+  const [newSoftSkill, setNewSoftSkill] = useState('');
   const [editingExp, setEditingExp] = useState(null);
   const [editingEdu, setEditingEdu] = useState(null);
   const [editingProj, setEditingProj] = useState(null);
 
-  const addSkill = () => {
-    if (newSkill.trim()) {
+  const templates = [
+    {
+      id: 'modern-professional',
+      name: 'Modern Professional',
+      description: 'Clean and contemporary design perfect for tech roles',
+      preview: 'A sleek, modern layout with subtle colors and clean typography',
+      features: ['Minimalist design', 'Perfect for tech roles', 'ATS-friendly']
+    },
+    {
+      id: 'minimal-tech',
+      name: 'Minimal Tech',
+      description: 'Ultra-clean design focused on content and readability',
+      preview: 'Simple, elegant layout that lets your experience shine',
+      features: ['Ultra-minimalist', 'Content-focused', 'Highly readable']
+    },
+    {
+      id: 'classic-ats',
+      name: 'Classic ATS',
+      description: 'Traditional format optimized for Applicant Tracking Systems',
+      preview: 'Time-tested layout that ATS systems love to parse',
+      features: ['ATS-optimized', 'Traditional format', 'Parser-friendly']
+    },
+    {
+      id: 'two-column-professional',
+      name: 'Two-Column Professional',
+      description: 'Modern two-column layout for comprehensive resumes',
+      preview: 'Efficient use of space with professional two-column design',
+      features: ['Space-efficient', 'Professional layout', 'Comprehensive']
+    },
+    {
+      id: 'creative',
+      name: 'Creative (ATS-Safe)',
+      description: 'Eye-catching design for creative roles while staying ATS-friendly',
+      preview: 'Bold yet professional design that stands out safely',
+      features: ['Creative design', 'ATS-compatible', 'Attention-grabbing']
+    },
+    {
+      id: 'compact-fresher',
+      name: 'Compact Fresher',
+      description: 'Space-efficient template perfect for entry-level professionals',
+      preview: 'Condensed yet comprehensive layout for fresh graduates',
+      features: ['Space-efficient', 'Entry-level friendly', 'Compact design']
+    },
+    {
+      id: 'executive',
+      name: 'Executive',
+      description: 'Sophisticated template for senior-level professionals',
+      preview: 'Elegant design that conveys authority and experience',
+      features: ['Executive style', 'Sophisticated design', 'Leadership-focused']
+    }
+  ];
+
+  const addTechnicalSkill = () => {
+    if (newTechnicalSkill.trim()) {
       setResumeData({
         ...resumeData,
-        skills: [...resumeData.skills, newSkill.trim()]
+        skills: {
+          ...resumeData.skills,
+          technical: [...resumeData.skills.technical, newTechnicalSkill.trim()]
+        }
       });
-      setNewSkill('');
+      setNewTechnicalSkill('');
     }
   };
 
-  const removeSkill = (index) => {
+  const addSoftSkill = () => {
+    if (newSoftSkill.trim()) {
+      setResumeData({
+        ...resumeData,
+        skills: {
+          ...resumeData.skills,
+          soft: [...resumeData.skills.soft, newSoftSkill.trim()]
+        }
+      });
+      setNewSoftSkill('');
+    }
+  };
+
+  const removeTechnicalSkill = (index) => {
     setResumeData({
       ...resumeData,
-      skills: resumeData.skills.filter((_, i) => i !== index)
+      skills: {
+        ...resumeData.skills,
+        technical: resumeData.skills.technical.filter((_, i) => i !== index)
+      }
+    });
+  };
+
+  const removeSoftSkill = (index) => {
+    setResumeData({
+      ...resumeData,
+      skills: {
+        ...resumeData.skills,
+        soft: resumeData.skills.soft.filter((_, i) => i !== index)
+      }
     });
   };
 
@@ -64,7 +154,13 @@ const ResumeBuilder = () => {
   };
 
   const addEducation = () => {
-    setEditingEdu({ degree: '', institution: '', year: '' });
+    setEditingEdu({
+      degree: '',
+      institution: '',
+      startYear: '',
+      endYear: '',
+      gpa: ''
+    });
   };
 
   const saveEducation = () => {
@@ -85,7 +181,16 @@ const ResumeBuilder = () => {
   };
 
   const addProject = () => {
-    setEditingProj({ name: '', description: '', technologies: [] });
+    setEditingProj({
+      name: '',
+      description: '',
+      technologies: [],
+      startMonth: '',
+      startYear: '',
+      endMonth: '',
+      endYear: '',
+      isPresent: false
+    });
   };
 
   const saveProject = () => {
@@ -105,19 +210,252 @@ const ResumeBuilder = () => {
     });
   };
 
-  const handleSave = () => {
-    toast.success('Resume saved! (Note: This is a demo - implement backend save functionality)');
+  const selectTemplate = (template) => {
+    setPreviewTemplate(template);
+    setCurrentStep('preview');
   };
 
-  const handleDownload = () => {
-    toast.success('Downloading resume... (Note: Implement PDF generation)');
+  const confirmTemplate = () => {
+    setSelectedTemplate(previewTemplate);
+    setPreviewTemplate(null);
+    setCurrentStep('edit');
   };
 
+  const changeTemplate = () => {
+    setPreviewTemplate(null);
+    setCurrentStep('template');
+  };
+
+  const handleSave = async () => {
+    if (!selectedTemplate) {
+      toast.error('Please select a template first');
+      return;
+    }
+
+    // Prompt for resume name
+    const resumeName = window.prompt('Enter a name for your resume:', `My Resume ${new Date().toLocaleDateString()}`);
+    if (!resumeName || !resumeName.trim()) {
+      toast.error('Resume name is required');
+      return;
+    }
+
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      await axios.post(`${API_URL}/saved-resumes`, {
+        name: resumeName.trim(),
+        template: selectedTemplate.id,
+        resumeData
+      });
+
+      toast.success(`Resume "${resumeName}" saved successfully!`);
+    } catch (error) {
+      console.error('Error saving resume:', error);
+      const message = error.response?.data?.message || 'Failed to save resume';
+      toast.error(message);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!selectedTemplate) {
+      toast.error('Please save your resume first before downloading');
+      return;
+    }
+
+    // First save the resume if not already saved
+    if (!resumeData._id) {
+      const resumeName = window.prompt('Enter a name for your resume:', `My Resume ${new Date().toLocaleDateString()}`);
+      if (!resumeName || !resumeName.trim()) {
+        toast.error('Resume name is required');
+        return;
+      }
+
+      try {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const response = await axios.post(`${API_URL}/saved-resumes`, {
+          name: resumeName.trim(),
+          template: selectedTemplate.id,
+          resumeData
+        });
+
+        // Update resumeData with the saved ID
+        setResumeData({ ...resumeData, _id: response.data.resume.id });
+        toast.success('Resume saved successfully! Generating PDF...');
+
+        // Download the PDF
+        const downloadResponse = await axios.get(`${API_URL}/saved-resumes/${response.data.resume.id}/download`, {
+          responseType: 'blob'
+        });
+
+        const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${resumeName.trim().replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+        toast.success('PDF downloaded successfully!');
+      } catch (error) {
+        console.error('Error:', error);
+        const message = error.response?.data?.message || 'Failed to download PDF';
+        toast.error(message);
+      }
+    } else {
+      // Resume is already saved, just download
+      try {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const response = await axios.get(`${API_URL}/saved-resumes/${resumeData._id}/download`, {
+          responseType: 'blob'
+        });
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${selectedTemplate.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+        toast.success('PDF downloaded successfully!');
+      } catch (error) {
+        console.error('Error downloading PDF:', error);
+        toast.error('Failed to download PDF');
+      }
+    }
+  };
+
+  const goBackToTemplates = () => {
+    setCurrentStep('template');
+  };
+
+  // Template Selection Step
+  if (currentStep === 'template') {
+    return (
+      <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Choose Your Resume Template</h1>
+            <p className="text-lg text-gray-600">Select a professional template that matches your industry and style</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer border-2 border-transparent hover:border-primary-300"
+                onClick={() => selectTemplate(template)}
+              >
+                <div className="h-48 bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-2">
+                      <span className="text-2xl font-bold text-primary-600">{template.name[0]}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">Template Preview</p>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{template.name}</h3>
+                  <p className="text-gray-600 mb-4">{template.description}</p>
+                  <div className="space-y-1">
+                    {template.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center space-x-2 text-sm text-gray-600">
+                        <span className="w-1.5 h-1.5 bg-primary-500 rounded-full"></span>
+                        <span>{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="w-full mt-4 bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700 transition-colors">
+                    Preview Template
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Template Preview Step
+  if (currentStep === 'preview' && previewTemplate) {
+    return (
+      <div className="min-h-screen page-content pt-16 px-4 py-8 pb-20">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Template Preview</h1>
+            <p className="text-lg text-gray-600">Review how your resume will look with the {previewTemplate.name} template</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Template Info */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center">
+                  <span className="text-2xl font-bold text-primary-600">{previewTemplate.name[0]}</span>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{previewTemplate.name}</h2>
+                  <p className="text-gray-600">{previewTemplate.description}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-8">
+                <h3 className="font-semibold text-gray-900">Template Features:</h3>
+                {previewTemplate.features.map((feature, idx) => (
+                  <div key={idx} className="flex items-center space-x-2 text-sm text-gray-600">
+                    <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                <button
+                  onClick={confirmTemplate}
+                  className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                >
+                  Continue with this Template
+                </button>
+                <button
+                  onClick={changeTemplate}
+                  className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Choose Different Template
+                </button>
+              </div>
+            </div>
+
+            {/* Resume Preview */}
+            <div className="bg-white rounded-xl shadow-lg p-4">
+              <div className="border border-gray-200 rounded-lg max-h-96 overflow-y-auto">
+                <TemplatePreview template={previewTemplate} resumeData={resumeData} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Edit Step
   return (
-    <div className="min-h-screen pt-16 md:ml-64 px-4 py-8 pb-20">
+    <div className="min-h-screen pt-20 md:ml-64 px-4 sm:px-6 lg:px-8 py-8 pb-20">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Resume Builder</h1>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={goBackToTemplates}
+              className="flex items-center space-x-2 text-primary-600 hover:text-primary-700"
+            >
+              ← Change Template
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Resume Builder</h1>
+              <p className="text-sm text-gray-600">Using: {selectedTemplate?.name}</p>
+            </div>
+          </div>
           <div className="flex space-x-4">
             <button
               onClick={handleSave}
@@ -221,34 +559,73 @@ const ResumeBuilder = () => {
             {/* Skills */}
             <div className="bg-white rounded-xl shadow-md p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Skills</h2>
-              <div className="flex space-x-2 mb-4">
-                <input
-                  type="text"
-                  value={newSkill}
-                  onChange={(e) => setNewSkill(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addSkill()}
-                  placeholder="Add skill"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <button
-                  onClick={addSkill}
-                  className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
-                >
-                  <FiPlus size={20} />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {resumeData.skills.map((skill, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm flex items-center space-x-2"
+
+              {/* Technical Skills */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Technical Skills</h3>
+                <div className="flex space-x-2 mb-4">
+                  <input
+                    type="text"
+                    value={newTechnicalSkill}
+                    onChange={(e) => setNewTechnicalSkill(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addTechnicalSkill()}
+                    placeholder="e.g., JavaScript, Python, React"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <button
+                    onClick={addTechnicalSkill}
+                    className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
                   >
-                    <span>{skill}</span>
-                    <button onClick={() => removeSkill(idx)} className="hover:text-red-600">
-                      <FiTrash2 size={14} />
-                    </button>
-                  </span>
-                ))}
+                    <FiPlus size={20} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {resumeData.skills.technical.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center space-x-2"
+                    >
+                      <span>{skill}</span>
+                      <button onClick={() => removeTechnicalSkill(idx)} className="hover:text-red-600">
+                        <FiTrash2 size={14} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Soft Skills */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Soft Skills</h3>
+                <div className="flex space-x-2 mb-4">
+                  <input
+                    type="text"
+                    value={newSoftSkill}
+                    onChange={(e) => setNewSoftSkill(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addSoftSkill()}
+                    placeholder="e.g., Communication, Leadership, Problem Solving"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <button
+                    onClick={addSoftSkill}
+                    className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    <FiPlus size={20} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {resumeData.skills.soft.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm flex items-center space-x-2"
+                    >
+                      <span>{skill}</span>
+                      <button onClick={() => removeSoftSkill(idx)} className="hover:text-red-600">
+                        <FiTrash2 size={14} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -345,23 +722,39 @@ const ResumeBuilder = () => {
                 <div className="mb-4 p-4 border border-gray-300 rounded-lg space-y-3">
                   <input
                     type="text"
-                    placeholder="Degree"
+                    placeholder="Degree (e.g., Bachelor of Science in Computer Science)"
                     value={editingEdu.degree}
                     onChange={(e) => setEditingEdu({ ...editingEdu, degree: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                   <input
                     type="text"
-                    placeholder="Institution"
+                    placeholder="Institution (e.g., University of California)"
                     value={editingEdu.institution}
                     onChange={(e) => setEditingEdu({ ...editingEdu, institution: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Start Year (e.g., 2020)"
+                      value={editingEdu.startYear}
+                      onChange={(e) => setEditingEdu({ ...editingEdu, startYear: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    <input
+                      type="text"
+                      placeholder="End Year (e.g., 2024 or Present)"
+                      value={editingEdu.endYear}
+                      onChange={(e) => setEditingEdu({ ...editingEdu, endYear: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
                   <input
                     type="text"
-                    placeholder="Year"
-                    value={editingEdu.year}
-                    onChange={(e) => setEditingEdu({ ...editingEdu, year: e.target.value })}
+                    placeholder="GPA (optional, e.g., 3.8/4.0)"
+                    value={editingEdu.gpa}
+                    onChange={(e) => setEditingEdu({ ...editingEdu, gpa: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                   <div className="flex space-x-2">
@@ -385,7 +778,11 @@ const ResumeBuilder = () => {
                   <div key={idx} className="p-4 bg-gray-50 rounded-lg flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold">{edu.degree}</h3>
-                      <p className="text-sm text-gray-600">{edu.institution} • {edu.year}</p>
+                      <p className="text-sm text-gray-600">{edu.institution}</p>
+                      <p className="text-sm text-gray-500">
+                        {edu.startYear} - {edu.endYear || 'Present'}
+                        {edu.gpa && ` • GPA: ${edu.gpa}`}
+                      </p>
                     </div>
                     <button
                       onClick={() => removeEducation(idx)}
@@ -426,6 +823,88 @@ const ResumeBuilder = () => {
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
+
+                  {/* Project Duration */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Project Duration</label>
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Start Month/Year</label>
+                        <div className="flex space-x-2">
+                          <select
+                            value={editingProj.startMonth}
+                            onChange={(e) => setEditingProj({ ...editingProj, startMonth: e.target.value })}
+                            className="flex-1 px-2 py-2 border border-gray-300 rounded text-sm"
+                          >
+                            <option value="">Month</option>
+                            <option value="Jan">Jan</option>
+                            <option value="Feb">Feb</option>
+                            <option value="Mar">Mar</option>
+                            <option value="Apr">Apr</option>
+                            <option value="May">May</option>
+                            <option value="Jun">Jun</option>
+                            <option value="Jul">Jul</option>
+                            <option value="Aug">Aug</option>
+                            <option value="Sep">Sep</option>
+                            <option value="Oct">Oct</option>
+                            <option value="Nov">Nov</option>
+                            <option value="Dec">Dec</option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Year"
+                            value={editingProj.startYear}
+                            onChange={(e) => setEditingProj({ ...editingProj, startYear: e.target.value })}
+                            className="flex-1 px-2 py-2 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">End Month/Year</label>
+                        <div className="flex space-x-2">
+                          <select
+                            value={editingProj.endMonth}
+                            onChange={(e) => setEditingProj({ ...editingProj, endMonth: e.target.value })}
+                            disabled={editingProj.isPresent}
+                            className="flex-1 px-2 py-2 border border-gray-300 rounded text-sm disabled:bg-gray-100"
+                          >
+                            <option value="">Month</option>
+                            <option value="Jan">Jan</option>
+                            <option value="Feb">Feb</option>
+                            <option value="Mar">Mar</option>
+                            <option value="Apr">Apr</option>
+                            <option value="May">May</option>
+                            <option value="Jun">Jun</option>
+                            <option value="Jul">Jul</option>
+                            <option value="Aug">Aug</option>
+                            <option value="Sep">Sep</option>
+                            <option value="Oct">Oct</option>
+                            <option value="Nov">Nov</option>
+                            <option value="Dec">Dec</option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Year"
+                            value={editingProj.endYear}
+                            onChange={(e) => setEditingProj({ ...editingProj, endYear: e.target.value })}
+                            disabled={editingProj.isPresent}
+                            className="flex-1 px-2 py-2 border border-gray-300 rounded text-sm disabled:bg-gray-100"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="project-present"
+                        checked={editingProj.isPresent}
+                        onChange={(e) => setEditingProj({ ...editingProj, isPresent: e.target.checked })}
+                        className="rounded"
+                      />
+                      <label htmlFor="project-present" className="text-sm text-gray-700">Currently working on this project</label>
+                    </div>
+                  </div>
+
                   <div className="flex space-x-2">
                     <button
                       onClick={saveProject}
@@ -447,7 +926,12 @@ const ResumeBuilder = () => {
                   <div key={idx} className="p-4 bg-gray-50 rounded-lg flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold">{proj.name}</h3>
-                      <p className="text-sm text-gray-700 mt-1">{proj.description}</p>
+                      <p className="text-sm text-gray-500 mb-1">
+                        {proj.startMonth && proj.startYear ? `${proj.startMonth} ${proj.startYear}` : ''}
+                        {proj.startMonth && proj.startYear && (proj.endMonth || proj.endYear || proj.isPresent) ? ' - ' : ''}
+                        {proj.isPresent ? 'Present' : (proj.endMonth && proj.endYear ? `${proj.endMonth} ${proj.endYear}` : '')}
+                      </p>
+                      <p className="text-sm text-gray-700">{proj.description}</p>
                     </div>
                     <button
                       onClick={() => removeProject(idx)}
@@ -462,74 +946,10 @@ const ResumeBuilder = () => {
           </div>
 
           {/* Preview Section */}
-          <div className="bg-white rounded-xl shadow-md p-8 sticky top-20">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Preview</h2>
-            <div className="resume-preview space-y-6">
-              <div>
-                <h1 className="text-3xl font-bold">{resumeData.personalInfo.name || 'Your Name'}</h1>
-                <div className="text-gray-600 mt-2">
-                  {resumeData.personalInfo.email && <span>{resumeData.personalInfo.email}</span>}
-                  {resumeData.personalInfo.phone && <span className="mx-2">•</span>}
-                  {resumeData.personalInfo.phone && <span>{resumeData.personalInfo.phone}</span>}
-                </div>
-              </div>
-
-              {resumeData.summary && (
-                <div>
-                  <h2 className="text-xl font-bold border-b-2 border-gray-300 pb-2 mb-2">Summary</h2>
-                  <p className="text-gray-700">{resumeData.summary}</p>
-                </div>
-              )}
-
-              {resumeData.skills.length > 0 && (
-                <div>
-                  <h2 className="text-xl font-bold border-b-2 border-gray-300 pb-2 mb-2">Skills</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {resumeData.skills.map((skill, idx) => (
-                      <span key={idx} className="px-2 py-1 bg-gray-100 rounded text-sm">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {resumeData.experience.length > 0 && (
-                <div>
-                  <h2 className="text-xl font-bold border-b-2 border-gray-300 pb-2 mb-2">Experience</h2>
-                  {resumeData.experience.map((exp, idx) => (
-                    <div key={idx} className="mb-4">
-                      <h3 className="font-semibold">{exp.title}</h3>
-                      <p className="text-sm text-gray-600">{exp.company} • {exp.duration}</p>
-                      <p className="text-sm text-gray-700 mt-1">{exp.description}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {resumeData.education.length > 0 && (
-                <div>
-                  <h2 className="text-xl font-bold border-b-2 border-gray-300 pb-2 mb-2">Education</h2>
-                  {resumeData.education.map((edu, idx) => (
-                    <div key={idx} className="mb-2">
-                      <h3 className="font-semibold">{edu.degree}</h3>
-                      <p className="text-sm text-gray-600">{edu.institution} • {edu.year}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {resumeData.projects.length > 0 && (
-                <div>
-                  <h2 className="text-xl font-bold border-b-2 border-gray-300 pb-2 mb-2">Projects</h2>
-                  {resumeData.projects.map((proj, idx) => (
-                    <div key={idx} className="mb-2">
-                      <h3 className="font-semibold">{proj.name}</h3>
-                      <p className="text-sm text-gray-700">{proj.description}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+          <div className="bg-white rounded-xl shadow-md p-4 sticky top-20">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Live Preview</h2>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <TemplatePreview template={selectedTemplate} resumeData={resumeData} />
             </div>
           </div>
         </div>

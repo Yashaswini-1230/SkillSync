@@ -6,24 +6,10 @@ import toast from 'react-hot-toast';
 const InterviewPrep = () => {
   const [resumes, setResumes] = useState([]);
   const [selectedResume, setSelectedResume] = useState('');
-  const [jobRole, setJobRole] = useState('');
-  const [customJobRole, setCustomJobRole] = useState('');
   const [generating, setGenerating] = useState(false);
   const [questions, setQuestions] = useState([]);
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
-  const jobRoles = [
-    'Software Engineer',
-    'Frontend Developer',
-    'Backend Developer',
-    'Full Stack Developer',
-    'Data Analyst',
-    'Data Scientist',
-    'DevOps Engineer',
-    'Product Manager',
-    'Other'
-  ];
 
   useEffect(() => {
     fetchResumes();
@@ -48,21 +34,14 @@ const InterviewPrep = () => {
       return;
     }
 
-    const finalJobRole = jobRole === 'Other' ? customJobRole : jobRole;
-    if (!finalJobRole.trim()) {
-      toast.error('Please enter a job role');
-      return;
-    }
-
     setGenerating(true);
     try {
       const response = await axios.post(`${API_URL}/interview/generate`, {
-        resumeId: selectedResume,
-        jobRole: finalJobRole
+        resumeId: selectedResume
       });
 
       setQuestions(response.data.questions);
-      toast.success('Interview questions generated successfully!');
+      toast.success(`Generated ${response.data.questions.length} interview questions!`);
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to generate questions';
       toast.error(message);
@@ -72,7 +51,7 @@ const InterviewPrep = () => {
   };
 
   return (
-    <div className="min-h-screen pt-16 md:ml-64 px-4 py-8 pb-20">
+    <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center space-x-3 mb-8">
           <FiMessageSquare size={32} className="text-primary-600" />
@@ -85,69 +64,36 @@ const InterviewPrep = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Resume
               </label>
-              {resumes.length === 0 ? (
-                <div className="text-center py-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600 mb-4">No resumes uploaded yet.</p>
-                  <a
-                    href="/upload"
-                    className="text-primary-600 hover:text-primary-700 font-medium"
-                  >
-                    Upload a resume first
-                  </a>
-                </div>
-              ) : (
-                <select
-                  value={selectedResume}
-                  onChange={(e) => setSelectedResume(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            {resumes.length === 0 ? (
+              <div className="text-center py-4 bg-gray-50 rounded-lg">
+                <p className="text-gray-600 mb-4">No resumes uploaded yet.</p>
+                <a
+                  href="/upload"
+                  className="text-primary-600 hover:text-primary-700 font-medium"
                 >
-                  {resumes.map((resume) => (
-                    <option key={resume._id} value={resume._id}>
-                      {resume.originalName}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Job Role
-              </label>
+                  Upload a resume first
+                </a>
+              </div>
+            ) : (
               <select
-                value={jobRole}
-                onChange={(e) => setJobRole(e.target.value)}
+                value={selectedResume}
+                onChange={(e) => setSelectedResume(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">Select a job role</option>
-                {jobRoles.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
+                {resumes.map((resume) => (
+                  <option key={resume._id} value={resume._id}>
+                    {resume.originalName}
                   </option>
                 ))}
               </select>
-            </div>
-
-            {jobRole === 'Other' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter Job Role
-                </label>
-                <input
-                  type="text"
-                  value={customJobRole}
-                  onChange={(e) => setCustomJobRole(e.target.value)}
-                  placeholder="e.g., Machine Learning Engineer"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
             )}
+          </div>
 
-            <button
-              onClick={handleGenerate}
-              disabled={generating || !selectedResume || !jobRole}
-              className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
+          <button
+            onClick={handleGenerate}
+            disabled={generating || !selectedResume}
+            className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
               <FiMessageSquare size={20} />
               <span>{generating ? 'Generating Questions...' : 'Generate Interview Questions'}</span>
             </button>
@@ -160,7 +106,7 @@ const InterviewPrep = () => {
             <div className="flex items-center space-x-3 mb-6">
               <FiBriefcase size={24} className="text-primary-600" />
               <h2 className="text-2xl font-bold text-gray-900">
-                Interview Questions ({questions.length})
+                Your Interview Questions ({questions.length})
               </h2>
             </div>
 

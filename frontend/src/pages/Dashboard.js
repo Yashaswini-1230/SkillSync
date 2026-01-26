@@ -80,36 +80,53 @@ const Dashboard = () => {
   const isFirstTimeUser = resumes.length === 0 && analyses.length === 0;
 
   return (
-    <div className="min-h-screen pt-16 md:ml-64 px-4 py-8 pb-20">
+    <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+        <div className="animate-fade-in">
+          <h1 className="text-responsive-2xl font-bold text-gray-900 mb-2">Welcome back, {user?.name}!</h1>
+          <p className="text-responsive-base text-gray-600 mb-8">Here's an overview of your resume analytics and recent activity.</p>
+        </div>
 
         {isFirstTimeUser ? (
           // First-time user view
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="mb-6">
-                <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FiUpload size={40} className="text-primary-600" />
+          <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-3xl shadow-2xl p-12 text-center animate-fade-in border border-white/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-purple-400/10 rounded-3xl"></div>
+            <div className="relative max-w-lg mx-auto">
+              <div className="mb-8">
+                <div className="w-32 h-32 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl transform hover:scale-110 transition-all duration-300">
+                  <FiUpload size={48} className="text-white drop-shadow-lg" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome, {user?.name}!</h2>
-                <p className="text-gray-600 mb-8">
-                  Upload your resume & job description to get started with SkillSync
+                <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-4">
+                  Welcome to SkillSync!
+                </h2>
+                <p className="text-xl text-gray-700 mb-3 font-medium">
+                  Let's get you started with professional resume analysis
+                </p>
+                <p className="text-gray-600 leading-relaxed">
+                  Upload your resume and analyze it against job descriptions to improve your ATS compatibility
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <Link
                   to="/upload"
-                  className="block w-full bg-primary-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                  className="group relative bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold py-4 px-8 rounded-2xl shadow-lg hover:shadow-2xl transform hover:scale-105 hover:-translate-y-1 transition-all duration-300 overflow-hidden"
                 >
-                  Upload Resume
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center space-x-3">
+                    <span className="text-2xl">📎</span>
+                    <span className="text-lg">Upload Resume</span>
+                  </div>
                 </Link>
                 <Link
-                  to="/analyze"
-                  className="block w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  to="/builder"
+                  className="group relative bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl shadow-lg hover:shadow-2xl transform hover:scale-105 hover:-translate-y-1 transition-all duration-300 overflow-hidden"
                 >
-                  Analyze Resume
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center space-x-3">
+                    <span className="text-2xl">🎨</span>
+                    <span className="text-lg">Build Resume</span>
+                  </div>
                 </Link>
               </div>
             </div>
@@ -119,38 +136,43 @@ const Dashboard = () => {
           <>
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="card-enhanced p-6 animate-slide-up">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-600 text-sm font-medium">Total Resumes</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalResumes}</p>
+                    <p className="text-gray-600 text-sm font-medium mb-1">Total Resumes</p>
+                    <p className="text-4xl font-bold text-gray-900">{stats.totalResumes}</p>
+                    <p className="text-xs text-gray-500 mt-1">Uploaded & saved</p>
                   </div>
-                  <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <FiUpload className="text-primary-600" size={24} />
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
+                    <FiUpload className="text-blue-600" size={28} />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="card-enhanced p-6 animate-slide-up" style={{animationDelay: '0.1s'}}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-600 text-sm font-medium">ATS Score</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.avgAtsScore}%</p>
+                    <p className="text-gray-600 text-sm font-medium mb-1">Average ATS Score</p>
+                    <p className="text-4xl font-bold text-gray-900">{stats.avgAtsScore}%</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {stats.avgAtsScore >= 80 ? 'Excellent' : stats.avgAtsScore >= 60 ? 'Good' : 'Needs improvement'}
+                    </p>
                   </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <FiSearch className="text-green-600" size={24} />
+                  <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
+                    <FiSearch className="text-green-600" size={28} />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="card-enhanced p-6 animate-slide-up" style={{animationDelay: '0.2s'}}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-600 text-sm font-medium">Total Analyses</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalAnalyses}</p>
+                    <p className="text-gray-600 text-sm font-medium mb-1">Total Analyses</p>
+                    <p className="text-4xl font-bold text-gray-900">{stats.totalAnalyses}</p>
+                    <p className="text-xs text-gray-500 mt-1">Job matches analyzed</p>
                   </div>
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FiCalendar className="text-blue-600" size={24} />
+                  <div className="w-14 h-14 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+                    <FiCalendar className="text-purple-600" size={28} />
                   </div>
                 </div>
               </div>

@@ -153,26 +153,79 @@ function analyzeResume(resumeText, parsedData, jobDescription, jobRole) {
   const jdVector = calculateTFIDF(jobDescription, allDocs);
   const similarity = cosineSimilarity(resumeVector, jdVector);
 
+  // Calculate keyword density for analysis
+  const resumeWordCount = resumeText.split(/\s+/).length;
+  const keywordDensity = jdSkills.reduce((count, skill) => {
+    const regex = new RegExp(skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    return count + (resumeText.match(regex) || []).length;
+  }, 0);
+  const densityRatio = keywordDensity / resumeWordCount;
+
   // Find matching and missing skills
-  const matchingSkills = resumeSkills.filter(skill => 
-    jdSkills.some(jdSkill => 
+  const matchingSkills = resumeSkills.filter(skill =>
+    jdSkills.some(jdSkill =>
       skill.includes(jdSkill) || jdSkill.includes(skill)
     )
   );
-  const missingSkills = jdSkills.filter(skill => 
-    !resumeSkills.some(resumeSkill => 
+  const missingSkills = jdSkills.filter(skill =>
+    !resumeSkills.some(resumeSkill =>
       skill.includes(resumeSkill) || resumeSkill.includes(skill)
     )
   );
 
-  // Calculate ATS score (0-100)
+  // Calculate ATS score (0-100) - Realistic algorithm
   const skillMatchRatio = jdSkills.length > 0 ? matchingSkills.length / jdSkills.length : 0;
-  const atsScore = Math.round(
-    (similarity * 40) + // Semantic similarity (40%)
-    (skillMatchRatio * 40) + // Skill matching (40%)
-    (parsedData.experience?.length > 0 ? 10 : 0) + // Has experience (10%)
-    (parsedData.education?.length > 0 ? 10 : 0) // Has education (10%)
-  );
+
+  // Base scores with realistic caps (never perfect)
+  const semanticScore = Math.min(similarity * 100, 70); // Max 70% for semantic similarity
+  const skillScore = Math.min(skillMatchRatio * 100, 75); // Max 75% for skill matching
+  const experienceScore = parsedData.experience?.length > 0 ? 6 : 0; // Experience bonus
+  const educationScore = parsedData.education?.length > 0 ? 5 : 0; // Education bonus
+
+  // Section completeness bonus (max 8 points)
+  let sectionBonus = 0;
+  if (parsedData.summary && parsedData.summary.length > 50) sectionBonus += 2;
+  if (parsedData.projects && parsedData.projects.length > 0) sectionBonus += 2;
+  if (parsedData.certifications && parsedData.certifications.length > 0) sectionBonus += 1;
+  if (parsedData.skills && Array.isArray(parsedData.skills) && parsedData.skills.length > 3) sectionBonus += 3;
+
+  // Advanced formatting and content penalties
+  let formattingPenalty = 0;
+
+  // Length penalties
+  if (resumeWordCount < 150) formattingPenalty += 8; // Too short
+  if (resumeWordCount > 800) formattingPenalty += 5; // Too long
+
+  // Keyword stuffing detection
+  if (densityRatio > 0.03) formattingPenalty += Math.min(densityRatio * 200, 15); // Max 15 point penalty
+
+  // Missing contact information penalty
+  if (!parsedData.email) formattingPenalty += 3;
+  if (!parsedData.phone) formattingPenalty += 2;
+
+  // Poor section structure penalty
+  const hasProperSections = resumeText.toLowerCase().includes('experience') &&
+                           resumeText.toLowerCase().includes('education') &&
+                           resumeText.toLowerCase().includes('skills');
+  if (!hasProperSections) formattingPenalty += 5;
+
+  // Over-optimization penalty (too many exact keyword matches)
+  const exactMatches = jdSkills.filter(skill =>
+    resumeText.toLowerCase().includes(skill.toLowerCase())
+  ).length;
+  if (exactMatches > jdSkills.length * 0.8) formattingPenalty += 5; // Penalize over-optimization
+
+  // Calculate weighted score
+  const rawScore = (semanticScore * 0.25) + // 25% semantic similarity
+                   (skillScore * 0.35) +   // 35% skill matching
+                   (experienceScore * 0.15) + // 15% experience
+                   (educationScore * 0.1) +  // 10% education
+                   (sectionBonus * 0.15);    // 15% section completeness
+
+  // Apply penalties and realistic caps
+  const finalScore = Math.max(15, Math.min(88, rawScore - formattingPenalty)); // Min 15%, Max 88%
+
+  const atsScore = Math.round(finalScore);
 
   // Detect missing sections
   const missingSections = detectMissingSections(resumeText, parsedData);
@@ -180,19 +233,48 @@ function analyzeResume(resumeText, parsedData, jobDescription, jobRole) {
   // Check grammar
   const grammarIssues = checkGrammar(resumeText);
 
-  // Generate suggestions
+  // Generate detailed suggestions
   const suggestions = [];
+
+  // Skill-related suggestions
   if (missingSkills.length > 0) {
-    suggestions.push(`Consider adding these skills: ${missingSkills.slice(0, 5).join(', ')}`);
+    suggestions.push(`Add these missing skills to improve match: ${missingSkills.slice(0, 3).join(', ')}`);
+    if (missingSkills.length > 3) {
+      suggestions.push(`Plus ${missingSkills.length - 3} additional skills from the job description`);
+    }
   }
+
+  // Section-related suggestions
   if (missingSections.length > 0) {
-    suggestions.push(`Add missing sections: ${missingSections.join(', ')}`);
+    suggestions.push(`Add missing resume sections: ${missingSections.join(', ')}`);
   }
-  if (atsScore < 70) {
-    suggestions.push('Improve keyword matching with job description');
+
+  // ATS optimization suggestions
+  if (atsScore < 60) {
+    suggestions.push('Significantly improve keyword alignment with job description');
+    suggestions.push('Use industry-standard section headers (Experience, Education, Skills)');
+  } else if (atsScore < 80) {
+    suggestions.push('Optimize keyword placement and density throughout resume');
+    suggestions.push('Ensure consistent formatting and professional structure');
   }
+
+  // Content quality suggestions
   if (parsedData.summary && parsedData.summary.length < 50) {
-    suggestions.push('Expand your professional summary');
+    suggestions.push('Expand your professional summary to highlight key achievements');
+  }
+  if (!parsedData.experience || parsedData.experience.length === 0) {
+    suggestions.push('Add detailed work experience with quantifiable achievements');
+  }
+  if (!parsedData.projects || parsedData.projects.length === 0) {
+    suggestions.push('Include relevant projects demonstrating your technical skills');
+  }
+
+  // Formatting suggestions
+  if (resumeWordCount < 150) {
+    suggestions.push('Resume appears brief - consider adding more detail about your experience');
+  }
+  if (densityRatio > 0.03) {
+    suggestions.push('Reduce keyword repetition to avoid appearing over-optimized');
   }
 
   // Calculate job role fit

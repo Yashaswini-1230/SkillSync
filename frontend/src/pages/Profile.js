@@ -63,7 +63,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen pt-16 md:ml-64 px-4 py-8 pb-20">
+    <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile</h1>
 
