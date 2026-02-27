@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Resume = require('../models/Resume');
 const auth = require('../middleware/auth');
+const { extractSkills } = require('../utils/analysisEngine');
 
 const router = express.Router();
 
@@ -12,7 +13,9 @@ function generateInterviewQuestions(resumeData) {
   const resumeText = resumeData.extractedText || '';
 
   // Extract specific information from resume
-  const skills = Array.isArray(parsedData.skills) ? parsedData.skills : [];
+  const parsedSkills = Array.isArray(parsedData.skills) ? parsedData.skills : [];
+  const extractedSkills = extractSkills(resumeText);
+  const skills = Array.from(new Set([...(parsedSkills || []), ...(extractedSkills || [])]));
   const experience = parsedData.experience || [];
   const projects = parsedData.projects || [];
   const education = parsedData.education || [];

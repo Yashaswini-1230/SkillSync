@@ -10,7 +10,8 @@ import {
   FiFileText,
   FiMessageSquare,
   FiUser,
-  FiLogOut
+  FiLogOut,
+  FiBriefcase
 } from 'react-icons/fi';
 
 const Sidebar = () => {
@@ -34,6 +35,7 @@ const Sidebar = () => {
     { path: '/analyze', icon: FiSearch, label: 'Analyze Resume' },
     { path: '/builder', icon: FiFileText, label: 'Resume Builder' },
     { path: '/saved-resumes', icon: FiFileText, label: 'Saved Resumes' },
+    { path: '/jobs', icon: FiBriefcase, label: 'Jobs & Internships' },
     { path: '/interview', icon: FiMessageSquare, label: 'AI Interview Prep' },
   ];
 

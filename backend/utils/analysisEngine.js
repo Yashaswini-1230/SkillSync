@@ -233,54 +233,109 @@ function analyzeResume(resumeText, parsedData, jobDescription, jobRole) {
   // Check grammar
   const grammarIssues = checkGrammar(resumeText);
 
-  // Generate detailed suggestions
-  const suggestions = [];
-
-  // Skill-related suggestions
-  if (missingSkills.length > 0) {
-    suggestions.push(`Add these missing skills to improve match: ${missingSkills.slice(0, 3).join(', ')}`);
-    if (missingSkills.length > 3) {
-      suggestions.push(`Plus ${missingSkills.length - 3} additional skills from the job description`);
-    }
-  }
-
-  // Section-related suggestions
-  if (missingSections.length > 0) {
-    suggestions.push(`Add missing resume sections: ${missingSections.join(', ')}`);
-  }
-
-  // ATS optimization suggestions
-  if (atsScore < 60) {
-    suggestions.push('Significantly improve keyword alignment with job description');
-    suggestions.push('Use industry-standard section headers (Experience, Education, Skills)');
-  } else if (atsScore < 80) {
-    suggestions.push('Optimize keyword placement and density throughout resume');
-    suggestions.push('Ensure consistent formatting and professional structure');
-  }
-
-  // Content quality suggestions
-  if (parsedData.summary && parsedData.summary.length < 50) {
-    suggestions.push('Expand your professional summary to highlight key achievements');
-  }
-  if (!parsedData.experience || parsedData.experience.length === 0) {
-    suggestions.push('Add detailed work experience with quantifiable achievements');
-  }
-  if (!parsedData.projects || parsedData.projects.length === 0) {
-    suggestions.push('Include relevant projects demonstrating your technical skills');
-  }
-
-  // Formatting suggestions
-  if (resumeWordCount < 150) {
-    suggestions.push('Resume appears brief - consider adding more detail about your experience');
-  }
-  if (densityRatio > 0.03) {
-    suggestions.push('Reduce keyword repetition to avoid appearing over-optimized');
-  }
-
-  // Calculate job role fit
+  // Calculate job role fit (used in suggestions and final output)
   const jobRoleFit = Math.round(
     (similarity * 50) + (skillMatchRatio * 50)
   );
+
+  // Generate detailed, resume-aware suggestions
+  const suggestions = [];
+
+  const displayedMatching = matchingSkills.slice(0, 5);
+  const displayedMissing = missingSkills.slice(0, 5);
+
+  // High‑level fit summary
+  suggestions.push(
+    `For the "${jobRole}" role, your resume currently shows an overall ATS compatibility score of ${Math.round(atsScore)}% and a role fit of ${jobRoleFit}%.`
+  );
+
+  if (displayedMatching.length > 0) {
+    suggestions.push(
+      `Your resume already highlights key ${jobRole} skills such as ${displayedMatching.join(', ')}. Make sure these appear prominently in your Experience and Projects sections with concrete achievements.`
+    );
+  }
+
+  // Skill‑level gaps tied to the job description
+  if (displayedMissing.length > 0) {
+    suggestions.push(
+      `The job description emphasizes skills like ${displayedMissing.join(', ')} that are weak or missing in your resume. Add them only where you genuinely have experience, ideally inside bullet points under relevant roles or projects.`
+    );
+    if (missingSkills.length > displayedMissing.length) {
+      suggestions.push(
+        `There are an additional ${missingSkills.length - displayedMissing.length} JD skills not clearly reflected in your resume—scan the job description and mirror its exact phrasing where it genuinely matches your background.`
+      );
+    }
+  }
+
+  // Section‑level structure feedback
+  if (missingSections.length > 0) {
+    suggestions.push(
+      `Your resume is missing important sections (${missingSections.join(', ')}). Add dedicated headings using standard titles so ATS can recognize them (for example: "Work Experience", "Education", "Projects", "Skills").`
+    );
+  }
+
+  // Summary feedback (content‑aware)
+  if (!parsedData.summary) {
+    suggestions.push(
+      'Add a 2–4 line Professional Summary at the top that clearly states your title, years of experience, main tech stack, and 2–3 quantified achievements relevant to the target role.'
+    );
+  } else if (parsedData.summary.length < 50) {
+    suggestions.push(
+      'Your Professional Summary is very short. Expand it to include your core tech stack, domains you have worked in, and at least one measurable impact (for example: “reduced API latency by 35%” or “improved test coverage to 85%”).'
+    );
+  }
+
+  // Experience feedback
+  if (!parsedData.experience || parsedData.experience.length === 0) {
+    suggestions.push(
+      'Add a Work Experience section with 3–6 bullet points per role. Focus each bullet on impact (metrics, scale, performance improvements) instead of responsibilities.'
+    );
+  } else {
+    suggestions.push(
+      `Review each role in your Work Experience section and rewrite bullets to be action‑oriented and measurable (for example: “Implemented ${jobRole}‑relevant features using ${displayedMatching.slice(0, 3).join(', ') || 'your primary tech stack'} that improved reliability, performance, or user experience”).`
+    );
+  }
+
+  // Projects feedback
+  if (!parsedData.projects || parsedData.projects.length === 0) {
+    suggestions.push(
+      'Add 1–3 Projects that demonstrate hands‑on use of the main tools from the job description. For each project, include technologies used, your specific contributions, and measurable outcomes.'
+    );
+  }
+
+  // Skills section quality
+  if (!parsedData.skills || !Array.isArray(parsedData.skills) || parsedData.skills.length === 0) {
+    suggestions.push(
+      'Create a dedicated Skills section grouping technologies into categories (e.g., Languages, Frameworks, Databases, Cloud/DevOps) and ensure the most important job‑specific skills appear in the first two lines.'
+    );
+  }
+
+  // Formatting and length suggestions
+  if (resumeWordCount < 150) {
+    suggestions.push(
+      'Your resume is very short. Add more detail to your Experience, Education, and Projects so that recruiters can see concrete evidence of your skills and impact.'
+    );
+  } else if (resumeWordCount > 800) {
+    suggestions.push(
+      'Your resume is quite long. Consider tightening older or less relevant roles and removing low‑impact bullet points so the most important information for this job stands out on the first page.'
+    );
+  }
+
+  if (densityRatio > 0.03) {
+    suggestions.push(
+      'The same keywords appear very frequently. Rewrite repetitive lines so that skills are used naturally in context rather than being repeated in every bullet—this reduces the risk of looking keyword‑stuffed to recruiters.'
+    );
+  }
+
+  // Grammar feedback (content‑aware)
+  if (grammarIssues && grammarIssues.length > 0) {
+    const sampleIssues = grammarIssues.slice(0, 3);
+    suggestions.push(
+      `We detected ${grammarIssues.length} grammar or basic writing issues. For example: ${sampleIssues
+        .map(issue => `"${issue.text}" → ${issue.suggestion}`)
+        .join('; ')}. Carefully proofread your resume or run it through a grammar checker.`
+    );
+  }
 
   return {
     atsScore: Math.min(100, Math.max(0, atsScore)),

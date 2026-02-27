@@ -131,55 +131,67 @@ router.get('/:id/download', auth, async (req, res) => {
     doc.pipe(res);
 
     // Header
-    doc.fontSize(24).text('SkillSync Resume Analysis Report', { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(24).text('SkillSync Resume Analysis Report', { align: 'center' });
     doc.moveDown();
-    doc.fontSize(14).text(`Resume: ${analysis.resumeId?.originalName || 'Resume'}`, { align: 'center' });
+    doc.font('Helvetica').fontSize(14).text(`Resume: ${analysis.resumeId?.originalName || 'Resume'}`, { align: 'center' });
     doc.fontSize(12).text(`Job Role: ${analysis.jobRole}`, { align: 'center' });
     doc.text(`Analysis Date: ${analysis.analyzedAt.toLocaleDateString()}`, { align: 'center' });
     doc.moveDown(2);
 
     // Executive Summary
-    doc.fontSize(18).text('Executive Summary', { underline: true });
+    doc.font('Helvetica-Bold').fontSize(18).text('Executive Summary', { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(12).text(`Your resume scored ${analysis.atsScore}% on our ATS compatibility analysis. ` +
+    doc.font('Helvetica').fontSize(12).text(`Your resume scored ${analysis.atsScore}% on our ATS compatibility analysis. ` +
       `${analysis.matchingSkills.length} out of ${analysis.matchingSkills.length + analysis.missingSkills.length} ` +
       `key skills from the job description were found in your resume.`, {
-      align: 'justify'
+      align: 'justify',
+      lineGap: 4
     });
     doc.moveDown();
 
     // ATS Score Section
-    doc.fontSize(16).text('ATS Compatibility Score', { underline: true });
+    doc.font('Helvetica-Bold').fontSize(16).text('ATS Compatibility Score', { underline: true });
     doc.moveDown(0.5);
 
     // Score Visualization
     const scoreBarWidth = 400;
-    const scoreBarHeight = 25;
+    const scoreBarHeight = 18;
     const scoreX = (doc.page.width - scoreBarWidth) / 2;
+    const scoreY = doc.y;
 
     // Background bar
-    doc.rect(scoreX, doc.y, scoreBarWidth, scoreBarHeight).stroke();
+    doc.roundedRect(scoreX, scoreY, scoreBarWidth, scoreBarHeight, 4).stroke();
     // Filled bar
-    doc.rect(scoreX, doc.y, (scoreBarWidth * analysis.atsScore) / 100, scoreBarHeight)
+    doc.roundedRect(
+      scoreX,
+      scoreY,
+      (scoreBarWidth * analysis.atsScore) / 100,
+      scoreBarHeight,
+      4
+    )
       .fillColor(getScoreColor(analysis.atsScore)).fill()
       .fillColor('black');
 
-    // Score text
-    doc.fontSize(36).fillColor(getScoreColor(analysis.atsScore))
-      .text(`${analysis.atsScore}%`, scoreX + scoreBarWidth/2 - 30, doc.y - scoreBarHeight - 10);
+    // Score text centered below bar
+    doc.moveDown(1.5);
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(getScoreColor(analysis.atsScore))
+      .text(`${analysis.atsScore}% ATS Match`, { align: 'center' });
     doc.fillColor('black');
     doc.moveDown(2);
 
     // Skills Analysis
-    doc.fontSize(16).text('Skills Analysis', { underline: true });
+    doc.font('Helvetica-Bold').fontSize(16).text('Skills Analysis', { underline: true });
     doc.moveDown(0.5);
 
     // Matching Skills
     doc.fontSize(14).text('✓ Matching Skills', { underline: true });
-    doc.fontSize(11);
+    doc.font('Helvetica').fontSize(11);
     if (analysis.matchingSkills.length > 0) {
       analysis.matchingSkills.forEach(skill => {
-        doc.text(`• ${skill}`);
+        doc.text(`• ${skill}`, {
+          indent: 10,
+          lineGap: 2
+        });
       });
     } else {
       doc.text('No matching skills found');
@@ -188,10 +200,13 @@ router.get('/:id/download', auth, async (req, res) => {
 
     // Missing Skills
     doc.fontSize(14).text('✗ Missing Skills', { underline: true });
-    doc.fontSize(11);
+    doc.font('Helvetica').fontSize(11);
     if (analysis.missingSkills.length > 0) {
       analysis.missingSkills.slice(0, 15).forEach(skill => {
-        doc.text(`• ${skill}`);
+        doc.text(`• ${skill}`, {
+          indent: 10,
+          lineGap: 2
+        });
       });
     } else {
       doc.text('All required skills are present');
@@ -199,14 +214,17 @@ router.get('/:id/download', auth, async (req, res) => {
     doc.moveDown();
 
     // Resume Structure Analysis
-    doc.fontSize(16).text('Resume Structure Analysis', { underline: true });
+    doc.font('Helvetica-Bold').fontSize(16).text('Resume Structure Analysis', { underline: true });
     doc.moveDown(0.5);
 
     doc.fontSize(14).text('Missing Sections', { underline: true });
-    doc.fontSize(11);
+    doc.font('Helvetica').fontSize(11);
     if (analysis.missingSections.length > 0) {
       analysis.missingSections.forEach(section => {
-        doc.text(`• ${section}`);
+        doc.text(`• ${section}`, {
+          indent: 10,
+          lineGap: 2
+        });
       });
     } else {
       doc.text('All recommended sections are present');
@@ -215,22 +233,28 @@ router.get('/:id/download', auth, async (req, res) => {
 
     // Grammar and Formatting Issues
     if (analysis.grammarIssues && analysis.grammarIssues.length > 0) {
-      doc.fontSize(14).text('Grammar & Formatting Issues', { underline: true });
-      doc.fontSize(11);
+      doc.font('Helvetica-Bold').fontSize(14).text('Grammar & Formatting Issues', { underline: true });
+      doc.font('Helvetica').fontSize(11);
       analysis.grammarIssues.slice(0, 10).forEach(issue => {
-        doc.text(`• ${issue.text} - ${issue.suggestion}`);
+        doc.text(`• ${issue.text} - ${issue.suggestion}`, {
+          indent: 10,
+          lineGap: 2
+        });
       });
       doc.moveDown();
     }
 
     // Actionable Recommendations
-    doc.fontSize(16).text('Actionable Recommendations', { underline: true });
+    doc.font('Helvetica-Bold').fontSize(16).text('Actionable Recommendations', { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(11);
+    doc.font('Helvetica').fontSize(11);
 
     if (analysis.suggestions.length > 0) {
       analysis.suggestions.forEach((suggestion, index) => {
-        doc.text(`${index + 1}. ${suggestion}`);
+        doc.text(`${index + 1}. ${suggestion}`, {
+          indent: 10,
+          lineGap: 3
+        });
       });
     } else {
       doc.text('Your resume is well-optimized for ATS systems.');
@@ -238,17 +262,22 @@ router.get('/:id/download', auth, async (req, res) => {
     doc.moveDown();
 
     // Job Role Compatibility
-    doc.fontSize(16).text('Job Role Compatibility', { underline: true });
+    doc.font('Helvetica-Bold').fontSize(16).text('Job Role Compatibility', { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(12).text(`Compatibility Score: ${analysis.jobRoleFit}%`, { align: 'center' });
+    doc.font('Helvetica').fontSize(12).text(`Compatibility Score: ${analysis.jobRoleFit}%`, { align: 'center' });
+    doc.moveDown(0.3);
     doc.fontSize(11).text(
       `Your background shows ${analysis.jobRoleFit}% compatibility with the ${analysis.jobRole} role. ` +
-      'Consider highlighting relevant experience and skills to improve this match.'
+      'Highlight the most relevant experience, projects, and skills from your resume that directly match the responsibilities and requirements in the job description.',
+      {
+        align: 'justify',
+        lineGap: 4
+      }
     );
     doc.moveDown();
 
     // Footer
-    doc.fontSize(10).text(
+    doc.font('Helvetica').fontSize(10).text(
       'Generated by SkillSync - Professional Resume Analysis Platform',
       { align: 'center' }
     );

@@ -23,6 +23,7 @@ app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/interview', require('./routes/interview'));
 app.use('/api/saved-resumes', require('./routes/savedResumes'));
+app.use('/api/jobs', require('./routes/jobs.routes'));
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/skillsync';

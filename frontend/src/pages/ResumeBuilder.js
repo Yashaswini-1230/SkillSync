@@ -33,6 +33,7 @@ const ResumeBuilder = () => {
   const [editingExp, setEditingExp] = useState(null);
   const [editingEdu, setEditingEdu] = useState(null);
   const [editingProj, setEditingProj] = useState(null);
+  const [savedResumeId, setSavedResumeId] = useState(null);
 
   const templates = [
     {
@@ -241,12 +242,13 @@ const ResumeBuilder = () => {
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      await axios.post(`${API_URL}/saved-resumes`, {
+      const response = await axios.post(`${API_URL}/saved-resumes`, {
         name: resumeName.trim(),
         template: selectedTemplate.id,
         resumeData
       });
 
+      setSavedResumeId(response.data.resume.id);
       toast.success(`Resume "${resumeName}" saved successfully!`);
     } catch (error) {
       console.error('Error saving resume:', error);
@@ -261,68 +263,63 @@ const ResumeBuilder = () => {
       return;
     }
 
-    // First save the resume if not already saved
-    if (!resumeData._id) {
-      const resumeName = window.prompt('Enter a name for your resume:', `My Resume ${new Date().toLocaleDateString()}`);
-      if (!resumeName || !resumeName.trim()) {
-        toast.error('Resume name is required');
-        return;
-      }
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-      try {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-        const response = await axios.post(`${API_URL}/saved-resumes`, {
+    try {
+      let resumeId = savedResumeId;
+      let filenameBase = selectedTemplate.name;
+
+      // If we don't have a saved ID yet, create one
+      if (!resumeId) {
+        const resumeName = window.prompt(
+          'Enter a name for your resume:',
+          `My Resume ${new Date().toLocaleDateString()}`
+        );
+        if (!resumeName || !resumeName.trim()) {
+          toast.error('Resume name is required');
+          return;
+        }
+
+        const saveResponse = await axios.post(`${API_URL}/saved-resumes`, {
           name: resumeName.trim(),
           template: selectedTemplate.id,
           resumeData
         });
 
-        // Update resumeData with the saved ID
-        setResumeData({ ...resumeData, _id: response.data.resume.id });
+        resumeId = saveResponse.data.resume.id;
+        filenameBase = resumeName.trim();
+        setSavedResumeId(resumeId);
         toast.success('Resume saved successfully! Generating PDF...');
-
-        // Download the PDF
-        const downloadResponse = await axios.get(`${API_URL}/saved-resumes/${response.data.resume.id}/download`, {
-          responseType: 'blob'
-        });
-
-        const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `${resumeName.trim().replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-
-        toast.success('PDF downloaded successfully!');
-      } catch (error) {
-        console.error('Error:', error);
-        const message = error.response?.data?.message || 'Failed to download PDF';
-        toast.error(message);
+      } else {
+        // Update existing saved resume with latest data before downloading
+        try {
+          await axios.put(`${API_URL}/saved-resumes/${resumeId}`, {
+            template: selectedTemplate.id,
+            resumeData
+          });
+        } catch (updateError) {
+          console.error('Error updating saved resume before download:', updateError);
+        }
       }
-    } else {
-      // Resume is already saved, just download
-      try {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-        const response = await axios.get(`${API_URL}/saved-resumes/${resumeData._id}/download`, {
-          responseType: 'blob'
-        });
 
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `${selectedTemplate.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
+      const downloadResponse = await axios.get(`${API_URL}/saved-resumes/${resumeId}/download`, {
+        responseType: 'blob'
+      });
 
-        toast.success('PDF downloaded successfully!');
-      } catch (error) {
-        console.error('Error downloading PDF:', error);
-        toast.error('Failed to download PDF');
-      }
+      const url = window.URL.createObjectURL(new Blob([downloadResponse.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${filenameBase.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      const message = error.response?.data?.message || 'Failed to download PDF';
+      toast.error(message);
     }
   };
 
@@ -381,7 +378,7 @@ const ResumeBuilder = () => {
   // Template Preview Step
   if (currentStep === 'preview' && previewTemplate) {
     return (
-      <div className="min-h-screen page-content pt-16 px-4 py-8 pb-20">
+      <div className="min-h-screen page-content pt-20 px-4 py-8 pb-20">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Template Preview</h1>
@@ -441,7 +438,7 @@ const ResumeBuilder = () => {
 
   // Edit Step
   return (
-    <div className="min-h-screen pt-20 md:ml-64 px-4 sm:px-6 lg:px-8 py-8 pb-20">
+    <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center space-x-4">

@@ -11,7 +11,8 @@ const Chatbot = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hi! I'm your SkillSync assistant. I can help you with resume building, job analysis, and interview preparation. How can I assist you today?",
+      text:
+        "Hi! I'm your SkillSync assistant. I can guide you through Upload → Analyze → Builder → Download, help you find Jobs & Internships, and prepare for interviews. For example, you can ask:\n\n• \"How do I analyze my resume?\"\n• \"Where can I see my ATS score?\"\n• \"How do Jobs & Internships work?\"\n• \"How do I use the Resume Builder?\"",
       isBot: true,
       timestamp: new Date()
     }
@@ -187,6 +188,17 @@ const Chatbot = () => {
       return {
         id: messages.length + 2,
         text: response,
+        isBot: true,
+        timestamp: new Date()
+      };
+    }
+
+    // Jobs & internships questions
+    if (input.includes('job') || input.includes('jobs') || input.includes('intern') || input.includes('internship')) {
+      return {
+        id: messages.length + 2,
+        text:
+          "To explore Jobs & Internships in SkillSync, open the \"Jobs & Internships\" page from the sidebar. There you can select a Job Role (e.g., Software Engineer, Data Analyst), choose a Location (e.g., Hyderabad, Remote), and filter by employment type. The platform uses the JSearch API to show live roles with Apply links.\n\nTip: Start by picking a role that matches your resume and a location like your city or Remote.",
         isBot: true,
         timestamp: new Date()
       };

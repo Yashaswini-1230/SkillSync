@@ -17,6 +17,8 @@ import ResumeBuilder from './pages/ResumeBuilder';
 import SavedResumes from './pages/SavedResumes';
 import InterviewPrep from './pages/InterviewPrep';
 import Profile from './pages/Profile';
+import Jobs from './pages/Jobs';
+import LandingPage from './pages/LandingPage';
 
 function App() {
   return (
@@ -79,6 +81,14 @@ function App() {
               }
             />
             <Route
+              path="/jobs"
+              element={
+                <PrivateRoute>
+                  <Jobs />
+                </PrivateRoute>
+              }
+            />
+            <Route
               path="/profile"
               element={
                 <PrivateRoute>
@@ -86,7 +96,7 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<LandingPage />} />
           </Routes>
         </div>
       </Router>

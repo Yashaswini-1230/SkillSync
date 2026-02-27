@@ -1,24 +1,107 @@
 import React from 'react';
 
+const emptyResumeData = {
+  personalInfo: {
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    linkedin: '',
+    github: ''
+  },
+  summary: '',
+  skills: {
+    technical: [],
+    soft: []
+  },
+  experience: [],
+  education: [],
+  projects: [],
+  certifications: []
+};
+
+// Sample content used when there is no real resume data yet.
+const sampleResumeData = {
+  personalInfo: {
+    name: 'Alex Johnson',
+    email: 'alex.johnson@example.com',
+    phone: '+91-9876543210',
+    address: 'Hyderabad, India',
+    linkedin: 'linkedin.com/in/alex-johnson',
+    github: 'github.com/alex-johnson'
+  },
+  summary:
+    'Detail-oriented Software Engineer with experience building full-stack web applications using React, Node.js, and MongoDB. Passionate about writing clean, maintainable code and improving system performance.',
+  skills: {
+    technical: ['JavaScript', 'React', 'Node.js', 'Express', 'MongoDB', 'REST APIs'],
+    soft: ['Problem Solving', 'Communication', 'Team Collaboration']
+  },
+  experience: [
+    {
+      title: 'Software Engineer',
+      company: 'TechCorp Pvt Ltd',
+      duration: 'Jun 2023 - Present',
+      description:
+        'Built and maintained React-based dashboards, optimized API performance, and collaborated with cross-functional teams to deliver new product features.'
+    }
+  ],
+  education: [
+    {
+      degree: 'B.Tech in Computer Science',
+      institution: 'XYZ Institute of Technology',
+      startYear: '2020',
+      endYear: '2024',
+      gpa: '8.5/10'
+    }
+  ],
+  projects: [
+    {
+      name: 'Resume Analyzer',
+      description:
+        'Developed an ATS-style resume analyzer using Node.js and NLP libraries to compute skill match scores against job descriptions.',
+      technologies: ['Node.js', 'Express', 'MongoDB'],
+      startMonth: 'Jan',
+      startYear: '2024',
+      endMonth: 'Apr',
+      endYear: '2024',
+      isPresent: false
+    }
+  ],
+  certifications: ['AWS Cloud Practitioner', 'React Developer Certification']
+};
+
 const TemplatePreview = ({ template, resumeData }) => {
+  const safeTemplate = template || { id: 'modern-professional' };
+
+  const baseData = resumeData || emptyResumeData;
+  const hasRealContent =
+    !!baseData.summary ||
+    (baseData.skills && ((baseData.skills.technical || []).length > 0 || (baseData.skills.soft || []).length > 0)) ||
+    (baseData.experience && baseData.experience.length > 0) ||
+    (baseData.education && baseData.education.length > 0) ||
+    (baseData.projects && baseData.projects.length > 0) ||
+    (baseData.certifications && baseData.certifications.length > 0);
+
+  const dataForRender = hasRealContent ? baseData : sampleResumeData;
+
   const renderTemplate = () => {
-    switch (template.id) {
+    switch (safeTemplate.id) {
       case 'modern-professional':
-        return <ModernProfessionalTemplate resumeData={resumeData} />;
+        return <ModernProfessionalTemplate resumeData={dataForRender} />;
       case 'minimal-tech':
-        return <MinimalTechTemplate resumeData={resumeData} />;
+        return <MinimalTechTemplate resumeData={dataForRender} />;
       case 'classic-ats':
-        return <ClassicATSTemplate resumeData={resumeData} />;
+        return <ClassicATSTemplate resumeData={dataForRender} />;
       case 'two-column-professional':
-        return <TwoColumnProfessionalTemplate resumeData={resumeData} />;
+        return <TwoColumnProfessionalTemplate resumeData={dataForRender} />;
       case 'creative':
-        return <CreativeTemplate resumeData={resumeData} />;
+        return <CreativeTemplate resumeData={dataForRender} />;
       case 'compact-fresher':
-        return <CompactFresherTemplate resumeData={resumeData} />;
+        return <CompactFresherTemplate resumeData={dataForRender} />;
       case 'executive':
-        return <ExecutiveTemplate resumeData={resumeData} />;
+        return <ExecutiveTemplate resumeData={dataForRender} />;
       default:
-        return <ModernProfessionalTemplate resumeData={resumeData} />;
+        return <ModernProfessionalTemplate resumeData={dataForRender} />;
     }
   };
 
