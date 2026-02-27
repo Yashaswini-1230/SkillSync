@@ -36,8 +36,8 @@ router.post('/', auth, [
       return res.status(404).json({ message: 'Resume not found' });
     }
 
-    // Perform analysis
-    const analysisResult = analyzeResume(
+    // Perform analysis (async semantic pipeline)
+    const analysisResult = await analyzeResume(
       resume.extractedText,
       resume.parsedData,
       jobDescription,

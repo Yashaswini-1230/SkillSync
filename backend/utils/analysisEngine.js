@@ -1,6 +1,39 @@
 const natural = require('natural');
 const nlp = require('compromise');
 
+let embeddingPipelinePromise = null;
+
+async function getEmbeddingPipeline() {
+  if (!embeddingPipelinePromise) {
+    // Dynamically import ESM-only transformers inside CommonJS
+    embeddingPipelinePromise = import('@xenova/transformers').then(({ pipeline }) =>
+      pipeline('feature-extraction', 'Xenova/all-mpnet-base-v2')
+    );
+  }
+  return embeddingPipelinePromise;
+}
+
+async function embedText(text) {
+  const pipe = await getEmbeddingPipeline();
+  const output = await pipe(text, { pooling: 'mean', normalize: true });
+  // output.data is a TypedArray
+  return Array.from(output.data);
+}
+
+function cosineFromEmbeddings(a, b) {
+  const len = Math.min(a.length, b.length);
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < len; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (!normA || !normB) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
 /**
  * Calculate TF-IDF vectors for text
  */
@@ -45,8 +78,8 @@ function cosineSimilarity(vecA, vecB) {
 function extractSkills(text) {
   const skills = [];
   const lowerText = text.toLowerCase();
-  
-  // Technical skills database
+
+  // Curated technical skills database (single or short phrases only)
   const technicalSkills = [
     'javascript', 'typescript', 'python', 'java', 'c++', 'c#', 'php', 'ruby',
     'react', 'angular', 'vue', 'node.js', 'express', 'django', 'flask',
@@ -54,29 +87,41 @@ function extractSkills(text) {
     'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins',
     'git', 'github', 'gitlab', 'ci/cd', 'agile', 'scrum',
     'html', 'css', 'sass', 'tailwind', 'bootstrap', 'material-ui',
-    'machine learning', 'deep learning', 'ai', 'nlp', 'data science',
+    'machine learning', 'deep learning', 'artificial intelligence', 'ai', 'nlp', 'data science',
     'frontend', 'backend', 'full stack', 'devops', 'microservices',
     'rest api', 'graphql', 'websocket', 'tcp/ip', 'http/https'
   ];
 
-  // Extract skills using phrase matching
-  technicalSkills.forEach(skill => {
+  // Direct phrase / keyword matches
+  technicalSkills.forEach((skill) => {
     if (lowerText.includes(skill)) {
       skills.push(skill);
     }
   });
 
-  // Use NLP to extract noun phrases that might be skills
+  // Use NLP to extract noun phrases and map them back to core technical skills
   const doc = nlp(text);
   const nouns = doc.nouns().out('array');
-  nouns.forEach(noun => {
-    const lowerNoun = noun.toLowerCase();
-    if (lowerNoun.length > 3 && !skills.includes(lowerNoun)) {
-      // Check if it's a technical term
-      if (technicalSkills.some(skill => lowerNoun.includes(skill) || skill.includes(lowerNoun))) {
-        skills.push(lowerNoun);
+
+  nouns.forEach((noun) => {
+    const lowerNoun = noun.toLowerCase().trim();
+    if (lowerNoun.length <= 3) return; // too short to be meaningful
+
+    // Ignore long, sentence-like phrases and ones dominated by stopwords
+    const wordTokens = lowerNoun.split(/\s+/).filter(Boolean);
+    if (wordTokens.length > 4) return;
+
+    const stopwords = new Set(['the', 'a', 'an', 'of', 'and', 'or', 'for', 'to', 'in', 'on']);
+    const nonStopCount = wordTokens.filter((w) => !stopwords.has(w)).length;
+    if (!nonStopCount) return;
+
+    technicalSkills.forEach((skill) => {
+      const ls = skill.toLowerCase();
+      // If this noun chunk clearly mentions a known skill, add the clean skill name
+      if (lowerNoun.includes(ls) || ls.includes(lowerNoun)) {
+        skills.push(skill);
       }
-    }
+    });
   });
 
   return [...new Set(skills)]; // Remove duplicates
@@ -113,26 +158,42 @@ function detectMissingSections(resumeText, parsedData) {
  */
 function checkGrammar(text) {
   const issues = [];
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim());
 
-  sentences.forEach((sentence, index) => {
+  sentences.forEach((sentence) => {
     const trimmed = sentence.trim();
-    if (trimmed.length > 0) {
-      // Check for common issues
-      if (!trimmed[0].match(/[A-Z]/)) {
-        issues.push({
-          text: trimmed,
-          suggestion: 'Sentence should start with a capital letter',
-          severity: 'low'
-        });
-      }
-      if (trimmed.length < 10) {
-        issues.push({
-          text: trimmed,
-          suggestion: 'Sentence seems too short, consider expanding',
-          severity: 'low'
-        });
-      }
+    if (!trimmed) return;
+
+    const lower = trimmed.toLowerCase();
+
+    // Skip lines that are likely URLs, contact lines, or highly formatted blocks
+    if (
+      lower.includes('http://') ||
+      lower.includes('https://') ||
+      lower.includes('www.') ||
+      lower.includes('linkedin') ||
+      lower.includes('github') ||
+      lower.includes('@') ||
+      trimmed.length > 220
+    ) {
+      return;
+    }
+
+    // Basic checks for sentence casing and very short fragments
+    if (!trimmed[0].match(/[A-Z]/)) {
+      issues.push({
+        text: trimmed,
+        suggestion: 'Sentence should start with a capital letter',
+        severity: 'low'
+      });
+    }
+
+    if (trimmed.length < 10 && /\s/.test(trimmed)) {
+      issues.push({
+        text: trimmed,
+        suggestion: 'Sentence seems too short, consider expanding',
+        severity: 'low'
+      });
     }
   });
 
@@ -140,211 +201,335 @@ function checkGrammar(text) {
 }
 
 /**
- * Main analysis function
+ * Detect weak vs strong action verbs and quantify bullets
  */
-function analyzeResume(resumeText, parsedData, jobDescription, jobRole) {
-  // Extract skills from both resume and JD
-  const resumeSkills = extractSkills(resumeText);
-  const jdSkills = extractSkills(jobDescription);
+function analyzeBullets(resumeText, jobRole) {
+  const lines = resumeText.split('\n').map(l => l.trim()).filter(Boolean);
+  const weakPhrases = [
+    'responsible for',
+    'worked on',
+    'involved in',
+    'participated in',
+    'helped',
+    'assisted',
+    'duties include',
+    'tasked with'
+  ];
+  const strongVerbs = [
+    'led',
+    'built',
+    'implemented',
+    'designed',
+    'architected',
+    'optimized',
+    'improved',
+    'increased',
+    'reduced',
+    'automated',
+    'migrated',
+    'refactored',
+    'delivered',
+    'shipped',
+    'owned'
+  ];
 
-  // Calculate semantic similarity
-  const allDocs = [resumeText, jobDescription];
-  const resumeVector = calculateTFIDF(resumeText, allDocs);
-  const jdVector = calculateTFIDF(jobDescription, allDocs);
-  const similarity = cosineSimilarity(resumeVector, jdVector);
-
-  // Calculate keyword density for analysis
-  const resumeWordCount = resumeText.split(/\s+/).length;
-  const keywordDensity = jdSkills.reduce((count, skill) => {
-    const regex = new RegExp(skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    return count + (resumeText.match(regex) || []).length;
-  }, 0);
-  const densityRatio = keywordDensity / resumeWordCount;
-
-  // Find matching and missing skills
-  const matchingSkills = resumeSkills.filter(skill =>
-    jdSkills.some(jdSkill =>
-      skill.includes(jdSkill) || jdSkill.includes(skill)
-    )
-  );
-  const missingSkills = jdSkills.filter(skill =>
-    !resumeSkills.some(resumeSkill =>
-      skill.includes(resumeSkill) || resumeSkill.includes(skill)
-    )
-  );
-
-  // Calculate ATS score (0-100) - Realistic algorithm
-  const skillMatchRatio = jdSkills.length > 0 ? matchingSkills.length / jdSkills.length : 0;
-
-  // Base scores with realistic caps (never perfect)
-  const semanticScore = Math.min(similarity * 100, 70); // Max 70% for semantic similarity
-  const skillScore = Math.min(skillMatchRatio * 100, 75); // Max 75% for skill matching
-  const experienceScore = parsedData.experience?.length > 0 ? 6 : 0; // Experience bonus
-  const educationScore = parsedData.education?.length > 0 ? 5 : 0; // Education bonus
-
-  // Section completeness bonus (max 8 points)
-  let sectionBonus = 0;
-  if (parsedData.summary && parsedData.summary.length > 50) sectionBonus += 2;
-  if (parsedData.projects && parsedData.projects.length > 0) sectionBonus += 2;
-  if (parsedData.certifications && parsedData.certifications.length > 0) sectionBonus += 1;
-  if (parsedData.skills && Array.isArray(parsedData.skills) && parsedData.skills.length > 3) sectionBonus += 3;
-
-  // Advanced formatting and content penalties
-  let formattingPenalty = 0;
-
-  // Length penalties
-  if (resumeWordCount < 150) formattingPenalty += 8; // Too short
-  if (resumeWordCount > 800) formattingPenalty += 5; // Too long
-
-  // Keyword stuffing detection
-  if (densityRatio > 0.03) formattingPenalty += Math.min(densityRatio * 200, 15); // Max 15 point penalty
-
-  // Missing contact information penalty
-  if (!parsedData.email) formattingPenalty += 3;
-  if (!parsedData.phone) formattingPenalty += 2;
-
-  // Poor section structure penalty
-  const hasProperSections = resumeText.toLowerCase().includes('experience') &&
-                           resumeText.toLowerCase().includes('education') &&
-                           resumeText.toLowerCase().includes('skills');
-  if (!hasProperSections) formattingPenalty += 5;
-
-  // Over-optimization penalty (too many exact keyword matches)
-  const exactMatches = jdSkills.filter(skill =>
-    resumeText.toLowerCase().includes(skill.toLowerCase())
-  ).length;
-  if (exactMatches > jdSkills.length * 0.8) formattingPenalty += 5; // Penalize over-optimization
-
-  // Calculate weighted score
-  const rawScore = (semanticScore * 0.25) + // 25% semantic similarity
-                   (skillScore * 0.35) +   // 35% skill matching
-                   (experienceScore * 0.15) + // 15% experience
-                   (educationScore * 0.1) +  // 10% education
-                   (sectionBonus * 0.15);    // 15% section completeness
-
-  // Apply penalties and realistic caps
-  const finalScore = Math.max(15, Math.min(88, rawScore - formattingPenalty)); // Min 15%, Max 88%
-
-  const atsScore = Math.round(finalScore);
-
-  // Detect missing sections
-  const missingSections = detectMissingSections(resumeText, parsedData);
-
-  // Check grammar
-  const grammarIssues = checkGrammar(resumeText);
-
-  // Calculate job role fit (used in suggestions and final output)
-  const jobRoleFit = Math.round(
-    (similarity * 50) + (skillMatchRatio * 50)
+  const bulletLines = lines.filter(l =>
+    l.startsWith('-') || l.startsWith('•') || l.startsWith('*')
   );
 
-  // Generate detailed, resume-aware suggestions
-  const suggestions = [];
+  const weak_bullets = [];
+  const rewritten_examples = [];
 
-  const displayedMatching = matchingSkills.slice(0, 5);
-  const displayedMissing = missingSkills.slice(0, 5);
+  let bulletsWithMetrics = 0;
+  let bulletsWithStrongVerbs = 0;
 
-  // High‑level fit summary
-  suggestions.push(
-    `For the "${jobRole}" role, your resume currently shows an overall ATS compatibility score of ${Math.round(atsScore)}% and a role fit of ${jobRoleFit}%.`
-  );
+  bulletLines.forEach(raw => {
+    const text = raw.replace(/^[-*•]\s*/, '');
+    const lower = text.toLowerCase();
+    const hasNumber = /\d+/.test(text) || /%/.test(text);
+    const hasStrongVerb = strongVerbs.some(v => lower.startsWith(v + ' ') || lower.includes(` ${v} `));
+    const hasWeak = weakPhrases.some(p => lower.startsWith(p) || lower.includes(` ${p} `));
 
-  if (displayedMatching.length > 0) {
-    suggestions.push(
-      `Your resume already highlights key ${jobRole} skills such as ${displayedMatching.join(', ')}. Make sure these appear prominently in your Experience and Projects sections with concrete achievements.`
-    );
-  }
+    if (hasNumber) bulletsWithMetrics += 1;
+    if (hasStrongVerb) bulletsWithStrongVerbs += 1;
 
-  // Skill‑level gaps tied to the job description
-  if (displayedMissing.length > 0) {
-    suggestions.push(
-      `The job description emphasizes skills like ${displayedMissing.join(', ')} that are weak or missing in your resume. Add them only where you genuinely have experience, ideally inside bullet points under relevant roles or projects.`
-    );
-    if (missingSkills.length > displayedMissing.length) {
-      suggestions.push(
-        `There are an additional ${missingSkills.length - displayedMissing.length} JD skills not clearly reflected in your resume—scan the job description and mirror its exact phrasing where it genuinely matches your background.`
+    if (hasWeak && !hasStrongVerb) {
+      const suggestion = `Rewrite to start with a strong verb and add a measurable outcome relevant to ${jobRole || 'the target role'}.`;
+      const rewritten = `Implemented ${jobRole || 'key features'} using your core tech stack, resulting in a measurable impact (for example: reduced latency by 30% or improved conversion rate by 12%).`;
+      weak_bullets.push({
+        text,
+        reason: 'Uses weak or responsibility-focused phrasing',
+        suggestion
+      });
+      rewritten_examples.push(rewritten);
+    } else if (!hasNumber) {
+      const suggestion = `Add at least one number (%, count, or time) to show impact for this line in the context of ${jobRole || 'the role'}.`;
+      weak_bullets.push({
+        text,
+        reason: 'No clear metrics or quantification',
+        suggestion
+      });
+      rewritten_examples.push(
+        `Led a ${jobRole || 'project'} initiative and achieved a specific, quantified outcome (for example: onboarded 5+ clients, increased uptime to 99.9%, or cut build times by 40%).`
       );
     }
-  }
+  });
 
-  // Section‑level structure feedback
-  if (missingSections.length > 0) {
-    suggestions.push(
-      `Your resume is missing important sections (${missingSections.join(', ')}). Add dedicated headings using standard titles so ATS can recognize them (for example: "Work Experience", "Education", "Projects", "Skills").`
-    );
-  }
-
-  // Summary feedback (content‑aware)
-  if (!parsedData.summary) {
-    suggestions.push(
-      'Add a 2–4 line Professional Summary at the top that clearly states your title, years of experience, main tech stack, and 2–3 quantified achievements relevant to the target role.'
-    );
-  } else if (parsedData.summary.length < 50) {
-    suggestions.push(
-      'Your Professional Summary is very short. Expand it to include your core tech stack, domains you have worked in, and at least one measurable impact (for example: “reduced API latency by 35%” or “improved test coverage to 85%”).'
-    );
-  }
-
-  // Experience feedback
-  if (!parsedData.experience || parsedData.experience.length === 0) {
-    suggestions.push(
-      'Add a Work Experience section with 3–6 bullet points per role. Focus each bullet on impact (metrics, scale, performance improvements) instead of responsibilities.'
-    );
-  } else {
-    suggestions.push(
-      `Review each role in your Work Experience section and rewrite bullets to be action‑oriented and measurable (for example: “Implemented ${jobRole}‑relevant features using ${displayedMatching.slice(0, 3).join(', ') || 'your primary tech stack'} that improved reliability, performance, or user experience”).`
-    );
-  }
-
-  // Projects feedback
-  if (!parsedData.projects || parsedData.projects.length === 0) {
-    suggestions.push(
-      'Add 1–3 Projects that demonstrate hands‑on use of the main tools from the job description. For each project, include technologies used, your specific contributions, and measurable outcomes.'
-    );
-  }
-
-  // Skills section quality
-  if (!parsedData.skills || !Array.isArray(parsedData.skills) || parsedData.skills.length === 0) {
-    suggestions.push(
-      'Create a dedicated Skills section grouping technologies into categories (e.g., Languages, Frameworks, Databases, Cloud/DevOps) and ensure the most important job‑specific skills appear in the first two lines.'
-    );
-  }
-
-  // Formatting and length suggestions
-  if (resumeWordCount < 150) {
-    suggestions.push(
-      'Your resume is very short. Add more detail to your Experience, Education, and Projects so that recruiters can see concrete evidence of your skills and impact.'
-    );
-  } else if (resumeWordCount > 800) {
-    suggestions.push(
-      'Your resume is quite long. Consider tightening older or less relevant roles and removing low‑impact bullet points so the most important information for this job stands out on the first page.'
-    );
-  }
-
-  if (densityRatio > 0.03) {
-    suggestions.push(
-      'The same keywords appear very frequently. Rewrite repetitive lines so that skills are used naturally in context rather than being repeated in every bullet—this reduces the risk of looking keyword‑stuffed to recruiters.'
-    );
-  }
-
-  // Grammar feedback (content‑aware)
-  if (grammarIssues && grammarIssues.length > 0) {
-    const sampleIssues = grammarIssues.slice(0, 3);
-    suggestions.push(
-      `We detected ${grammarIssues.length} grammar or basic writing issues. For example: ${sampleIssues
-        .map(issue => `"${issue.text}" → ${issue.suggestion}`)
-        .join('; ')}. Carefully proofread your resume or run it through a grammar checker.`
-    );
-  }
+  const totalBullets = bulletLines.length || 1;
+  const quantificationRatio = bulletsWithMetrics / totalBullets;
+  const strongVerbRatio = bulletsWithStrongVerbs / totalBullets;
 
   return {
-    atsScore: Math.min(100, Math.max(0, atsScore)),
-    matchingSkills: [...new Set(matchingSkills)],
-    missingSkills: [...new Set(missingSkills)],
+    weak_bullets,
+    rewritten_examples: Array.from(new Set(rewritten_examples)).slice(0, 10),
+    quantificationRatio,
+    strongVerbRatio
+  };
+}
+
+/**
+ * Main analysis function (async, uses sentence-transformers all-MiniLM-L6-v2)
+ */
+async function analyzeResume(resumeText, parsedData, jobDescription, jobRole) {
+  const safeResumeText = resumeText || '';
+  const safeJobDescription = jobDescription || '';
+  const safeParsed = parsedData || {};
+
+  // Structured extraction
+  const resumeSkills = extractSkills(safeResumeText);
+  const jdSkills = extractSkills(safeJobDescription);
+  const experience = Array.isArray(safeParsed.experience) ? safeParsed.experience : [];
+  const education = Array.isArray(safeParsed.education) ? safeParsed.education : [];
+  const projects = Array.isArray(safeParsed.projects) ? safeParsed.projects : [];
+
+  // Sentence-transformers embeddings (all-MiniLM-L6-v2)
+  const [resumeEmbedding, jdEmbedding] = await Promise.all([
+    embedText(safeResumeText || safeJobDescription),
+    embedText(safeJobDescription || safeResumeText)
+  ]);
+  const semanticSimilarity = cosineFromEmbeddings(resumeEmbedding, jdEmbedding);
+
+  // Skill gap analysis using cosine similarity with dynamic threshold
+  const missing_skills = [];
+  const matchingSkills = new Set();
+
+  const jdSkillEmbeddings = await Promise.all(
+    jdSkills.map((s) => embedText(s))
+  );
+  const resumeSkillEmbeddings = await Promise.all(
+    resumeSkills.map((s) => embedText(s))
+  );
+
+  jdSkills.forEach((jdSkill, idx) => {
+    const jdEmb = jdSkillEmbeddings[idx];
+    let bestSim = 0;
+    let bestResumeSkill = null;
+
+    resumeSkills.forEach((rs, rIdx) => {
+      const rsEmb = resumeSkillEmbeddings[rIdx];
+      const sim = cosineFromEmbeddings(jdEmb, rsEmb);
+      if (sim > bestSim) {
+        bestSim = sim;
+        bestResumeSkill = rs;
+      }
+    });
+
+    // Dynamic threshold based on overall similarity (0.55–0.7)
+    const baseThreshold = 0.55;
+    const highThreshold = 0.7;
+    const dynamicThreshold =
+      baseThreshold + (highThreshold - baseThreshold) * (1 - semanticSimilarity);
+
+    if (bestSim >= dynamicThreshold && bestResumeSkill) {
+      matchingSkills.add(bestResumeSkill);
+    } else {
+      missing_skills.push({
+        name: jdSkill,
+        confidence: Number(bestSim.toFixed(2))
+      });
+    }
+  });
+
+  const matchingSkillsArr = Array.from(matchingSkills);
+
+  // Experience relevance score (embedding similarity of each role)
+  let experienceScoreRaw = 0;
+  if (experience.length > 0) {
+    const expSimilarities = await Promise.all(
+      experience.map(async (exp) => {
+        const snippet = `${exp.title || ''} ${exp.company || ''} ${exp.description || ''}`;
+        const emb = await embedText(snippet || safeResumeText);
+        return cosineFromEmbeddings(emb, jdEmbedding);
+      })
+    );
+    const avgExpSim =
+      expSimilarities.reduce((sum, v) => sum + v, 0) / expSimilarities.length;
+    experienceScoreRaw = avgExpSim;
+  }
+
+  // Keyword density (how often JD skills appear in resume)
+  const resumeWordCount = safeResumeText.split(/\s+/).filter(Boolean).length || 1;
+  const keywordHits = jdSkills.reduce((count, skill) => {
+    const pattern = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${pattern}\\b`, 'gi');
+    const matches = safeResumeText.match(regex);
+    return count + (matches ? matches.length : 0);
+  }, 0);
+  const densityRatio = keywordHits / resumeWordCount;
+
+  // Action verbs and quantification
+  const bulletAnalysis = analyzeBullets(safeResumeText, jobRole);
+
+  // Weighted scoring components (all 0-100)
+  // Skills semantic score: proportion of JD skills with a strong semantic match
+  const skills_match_score = jdSkills.length
+    ? Math.min(100, Math.round((matchingSkillsArr.length / jdSkills.length) * 100))
+    : 0;
+  const skills_semantic_score = skills_match_score;
+
+  // Experience relevance: embedding-based similarity mapped to 0-100
+  const experience_relevance_score = Math.min(
+    100,
+    Math.round(experienceScoreRaw * 100)
+  );
+
+  // Simple keyword score based on how often JD terms appear in resume
+  const keyword_score = Math.max(
+    0,
+    Math.min(100, Math.round(densityRatio * 4000))
+  );
+
+  // Project relevance: reuse experience similarity as an approximation if projects exist
+  const project_relevance_score =
+    projects && projects.length
+      ? experience_relevance_score
+      : Math.round(experience_relevance_score * 0.7);
+
+  // Impact & metrics score (numbers + strong verbs)
+  const impact_metrics_score = Math.min(
+    100,
+    Math.round(
+      (bulletAnalysis.quantificationRatio * 0.6 +
+        bulletAnalysis.strongVerbRatio * 0.4) *
+        100
+    )
+  );
+
+  // Action verb strength score
+  const action_verb_strength_score = Math.min(
+    100,
+    Math.round(bulletAnalysis.strongVerbRatio * 100)
+  );
+
+  // Final ATS score using requested weights
+  const ats_score = Math.round(
+    skills_semantic_score * 0.3 +
+      keyword_score * 0.15 +
+      experience_relevance_score * 0.2 +
+      project_relevance_score * 0.1 +
+      impact_metrics_score * 0.15 +
+      action_verb_strength_score * 0.1
+  );
+
+  // Legacy-style helpers reused
+  const missingSections = detectMissingSections(safeResumeText, safeParsed);
+  const grammarIssues = checkGrammar(safeResumeText);
+
+  // Personalized, job-role-aware suggestions
+  const improvement_suggestions = [];
+  const roleLabel = jobRole || 'the target role';
+
+  improvement_suggestions.push(
+    `For the ${roleLabel} position, your overall ATS alignment is approximately ${ats_score}%. Focus on strengthening the skills and experience that most directly match the posted responsibilities.`
+  );
+
+  if (matchingSkillsArr.length) {
+    improvement_suggestions.push(
+      `You already surface important ${roleLabel} skills such as ${matchingSkillsArr
+        .slice(0, 5)
+        .join(', ')}. Move the strongest ones into the first two bullet points under the most relevant experience or projects.`
+    );
+  }
+
+  if (missing_skills.length) {
+    improvement_suggestions.push(
+      `The job description highlights skills like ${missing_skills
+        .slice(0, 5)
+        .map((s) => s.name)
+        .join(', ')} which are not clearly demonstrated in your resume. If you truly have experience here, add 1–2 bullets under the most relevant role that show how you used each skill with a measurable outcome.`
+    );
+  }
+
+  if (bulletAnalysis.quantificationRatio < 0.5) {
+    improvement_suggestions.push(
+      `Less than half of your bullet points include concrete numbers. For a ${roleLabel} resume, aim for at least one metric in most bullets (for example: “reduced deployment time by 40%”, “handled 25+ tickets per week”, or “cut infrastructure costs by 18%”).`
+    );
+  }
+
+  if (bulletAnalysis.strongVerbRatio < 0.5) {
+    improvement_suggestions.push(
+      `Many bullets currently read like responsibilities rather than achievements. Start more lines with strong, outcome-focused verbs (such as “implemented”, “optimized”, or “designed”) that match what a ${roleLabel} is expected to do.`
+    );
+  }
+
+  if (missingSections.length) {
+    improvement_suggestions.push(
+      `Add or strengthen these sections so an ATS and recruiter can quickly parse your profile: ${missingSections.join(
+        ', '
+      )}. Use standard headings like “Work Experience”, “Education”, “Projects”, and “Skills”.`
+    );
+  }
+
+  // Include a few grammar-aware notes
+  if (grammarIssues && grammarIssues.length) {
+    const sample = grammarIssues.slice(0, 3);
+    improvement_suggestions.push(
+      `Polish your writing quality by fixing grammar and style issues such as: ${sample
+        .map((i) => `"${i.text}" → ${i.suggestion}`)
+        .join('; ')}. Clean, consistent writing improves perceived seniority for ${roleLabel}.`
+    );
+  }
+
+  // Backwards-compatible fields for existing frontend and reports
+  const atsScoreLegacy = Math.min(100, Math.max(0, ats_score));
+  const jobRoleFit = Math.min(
+    100,
+    Math.max(
+      0,
+      Math.round((semanticSimilarity * 50) + (skills_match_score * 0.5))
+    )
+  );
+
+  const legacySuggestions = [...improvement_suggestions];
+
+  return {
+    // New structured JSON for semantic analysis pipeline
+    ats_score,
+    breakdown: {
+      skills: skills_semantic_score,
+      keywords: keyword_score,
+      experience: experience_relevance_score,
+      projects: project_relevance_score,
+      metrics: impact_metrics_score,
+      action_verbs: action_verb_strength_score
+    },
+    skills_match_score: skills_semantic_score,
+    experience_score: experience_relevance_score,
+    keyword_density_score: keyword_score,
+    impact_metrics_score,
+    missing_skills,
+    weak_bullets: bulletAnalysis.weak_bullets,
+    improvement_suggestions,
+    rewritten_examples: bulletAnalysis.rewritten_examples,
+
+    // Legacy fields expected by existing frontend and PDF reports
+    atsScore: atsScoreLegacy,
+    matchingSkills: matchingSkillsArr,
+    missingSkills: missing_skills.map((s) => s.name),
     missingSections,
     grammarIssues,
-    suggestions,
-    jobRoleFit: Math.min(100, Math.max(0, jobRoleFit))
+    suggestions: legacySuggestions,
+    jobRoleFit
   };
 }
 

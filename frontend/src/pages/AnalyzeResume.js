@@ -365,20 +365,57 @@ const AnalyzeResume = () => {
               </div>
             </div>
 
-            {/* Score Meter */}
-            <div className="mb-8">
-              <div className="w-full bg-gray-200 rounded-full h-4">
-                <div
-                  className={`h-4 rounded-full transition-all ${
-                    analysisResult.atsScore >= 80
-                      ? 'bg-green-500'
-                      : analysisResult.atsScore >= 60
-                      ? 'bg-yellow-500'
-                      : 'bg-red-500'
-                  }`}
-                  style={{ width: `${analysisResult.atsScore}%` }}
-                />
+            {/* Score Gauge + Breakdown */}
+            <div className="mb-8 space-y-6">
+              {/* Main gauge */}
+              <div>
+                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                  <div
+                    className={`h-4 rounded-full transition-all ${
+                      analysisResult.atsScore >= 80
+                        ? 'bg-green-500'
+                        : analysisResult.atsScore >= 60
+                        ? 'bg-yellow-500'
+                        : 'bg-red-500'
+                    }`}
+                    style={{ width: `${analysisResult.atsScore}%` }}
+                  />
+                </div>
               </div>
+
+              {/* Breakdown bars */}
+              {analysisResult.breakdown && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Score Breakdown</h3>
+                  <div className="space-y-3">
+                    {[
+                      { key: 'skills', label: 'Skills Match' },
+                      { key: 'keywords', label: 'Keywords' },
+                      { key: 'experience', label: 'Experience Relevance' },
+                      { key: 'projects', label: 'Project Relevance' },
+                      { key: 'metrics', label: 'Impact & Metrics' },
+                      { key: 'action_verbs', label: 'Action Verbs' }
+                    ].map((item) => {
+                      const value = analysisResult.breakdown[item.key] ?? null;
+                      if (value === null || value === undefined) return null;
+                      return (
+                        <div key={item.key}>
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>{item.label}</span>
+                            <span>{Math.round(value)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-2 rounded-full bg-primary-500 transition-all"
+                              style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Skills Analysis */}
@@ -414,7 +451,7 @@ const AnalyzeResume = () => {
                     analysisResult.missingSkills.slice(0, 10).map((skill, idx) => (
                       <div key={idx} className="flex items-center space-x-2">
                         <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                        <span className="text-sm text-gray-700">{skill}</span>
+                        <span className="text-sm text-red-700 font-medium">{skill}</span>
                       </div>
                     ))
                   ) : (
@@ -449,13 +486,15 @@ const AnalyzeResume = () => {
                   <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
                   Actionable Recommendations
                 </h3>
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {analysisResult.suggestions.map((suggestion, idx) => (
-                    <div key={idx} className="flex items-start space-x-3 bg-blue-50 p-3 rounded-lg">
-                      <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                        {idx + 1}
-                      </span>
-                      <span className="text-sm text-gray-700">{suggestion}</span>
+                    <div key={idx} className="card-enhanced p-4 bg-blue-50">
+                      <div className="flex items-start space-x-3">
+                        <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                          {idx + 1}
+                        </span>
+                        <span className="text-sm text-gray-700">{suggestion}</span>
+                      </div>
                     </div>
                   ))}
                 </div>

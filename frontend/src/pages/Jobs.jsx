@@ -111,7 +111,7 @@ const Jobs = () => {
         {/* Search Form */}
         <form
           onSubmit={handleSearch}
-          className="bg-white rounded-xl shadow-md p-6 mb-8"
+          className="card-enhanced p-6 mb-8"
         >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2 space-y-2">
@@ -121,7 +121,7 @@ const Jobs = () => {
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="input-enhanced"
               >
                 <option value="">Select a role</option>
                 {roleOptions.map((role) => (
@@ -136,7 +136,7 @@ const Jobs = () => {
                   value={customRole}
                   onChange={(e) => setCustomRole(e.target.value)}
                   placeholder="Enter a custom job role, e.g., Blockchain Developer"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="input-enhanced"
                 />
               )}
             </div>
@@ -147,7 +147,7 @@ const Jobs = () => {
               <select
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="input-enhanced"
               >
                 {locationOptions.map((loc) => (
                   <option key={loc} value={loc}>
@@ -161,7 +161,7 @@ const Jobs = () => {
                   value={customLocation}
                   onChange={(e) => setCustomLocation(e.target.value)}
                   placeholder="Enter a custom location, e.g., London or Remote (EU)"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="input-enhanced"
                 />
               )}
             </div>
@@ -172,7 +172,7 @@ const Jobs = () => {
               <select
                 value={employmentType}
                 onChange={(e) => setEmploymentType(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="input-enhanced"
               >
                 <option value="ALL">Any</option>
                 <option value="INTERN">Internship</option>
@@ -187,7 +187,7 @@ const Jobs = () => {
             <button
               type="button"
               onClick={handleClear}
-              className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="btn-secondary inline-flex items-center justify-center text-sm"
             >
               <FiRefreshCw className="mr-2" size={16} />
               Clear Filters
@@ -195,7 +195,7 @@ const Jobs = () => {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="btn-primary inline-flex items-center justify-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FiSearch className="mr-2" size={16} />
               {loading ? 'Searching...' : 'Search Jobs'}
