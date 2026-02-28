@@ -1,170 +1,148 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const Resume = require('../models/Resume');
 const auth = require('../middleware/auth');
-const { extractSkills } = require('../utils/analysisEngine');
+const crypto = require('crypto');
 
 const router = express.Router();
 
-// Generate truly resume-specific interview questions
-function generateInterviewQuestions(resumeData) {
-  const questions = [];
-  const parsedData = resumeData.parsedData || {};
-  const resumeText = resumeData.extractedText || '';
+function randomInt(min, max) {
+  return crypto.randomInt(min, max + 1);
+}
 
-  // Extract specific information from resume
-  const parsedSkills = Array.isArray(parsedData.skills) ? parsedData.skills : [];
-  const extractedSkills = extractSkills(resumeText);
-  const skills = Array.from(new Set([...(parsedSkills || []), ...(extractedSkills || [])]));
-  const experience = parsedData.experience || [];
-  const projects = parsedData.projects || [];
-  const education = parsedData.education || [];
-
-  // 1. SKILL-SPECIFIC QUESTIONS (based on actual skills in resume)
-  if (skills.length > 0) {
-    const topSkills = skills.slice(0, 3); // Focus on most prominent skills
-
-    topSkills.forEach(skill => {
-      // Create skill-specific questions based on the actual skill mentioned
-      const skillQuestions = [
-        `Based on your resume, you have experience with ${skill}. Can you walk me through a specific project where you applied ${skill} to solve a problem?`,
-        `Your resume mentions ${skill} as a skill. How have you kept your ${skill} knowledge current in your recent work?`,
-        `I see ${skill} listed in your technical skills. Can you describe a challenging situation where your ${skill} expertise was crucial?`,
-        `How do you approach using ${skill} in team environments, based on your experience?`
-      ];
-
-      const randomQuestion = skillQuestions[Math.floor(Math.random() * skillQuestions.length)];
-      questions.push({
-        type: 'technical',
-        question: randomQuestion
-      });
-    });
+function sampleUnique(arr, count) {
+  const copy = [...arr];
+  const out = [];
+  const n = Math.min(count, copy.length);
+  for (let i = 0; i < n; i++) {
+    const idx = randomInt(0, copy.length - 1);
+    out.push(copy.splice(idx, 1)[0]);
   }
+  return out;
+}
 
-  // 2. EXPERIENCE-BASED QUESTIONS (based on actual job titles/companies)
-  if (experience.length > 0) {
-    experience.slice(0, 2).forEach((exp, index) => {
-      if (exp.title && exp.company) {
-        const experienceQuestions = [
-          `In your role as ${exp.title} at ${exp.company}, can you describe a technical challenge you faced and how you solved it?`,
-          `Your resume shows you worked as ${exp.title} at ${exp.company}. What was your biggest accomplishment in that position?`,
-          `As a ${exp.title} at ${exp.company}, how did you contribute to team goals or project success?`,
-          `What technical skills did you develop or improve during your time as ${exp.title} at ${exp.company}?`
-        ];
+function inferTrack(roleLower) {
+  if (/(front\s*end|frontend|ui|react|angular|vue)/.test(roleLower)) return 'frontend';
+  if (/(back\s*end|backend|api|server|node|java|spring|dotnet)/.test(roleLower)) return 'backend';
+  if (/(data|analyst|analytics|bi|scientist|ml|machine learning|ai)/.test(roleLower)) return 'data';
+  if (/(devops|sre|site reliability|platform|cloud|infra)/.test(roleLower)) return 'devops';
+  if (/(qa|test|automation|sdet)/.test(roleLower)) return 'qa';
+  if (/(product|pm|product manager)/.test(roleLower)) return 'product';
+  return 'general';
+}
 
-        const randomQuestion = experienceQuestions[Math.floor(Math.random() * experienceQuestions.length)];
-        questions.push({
-          type: 'technical',
-          question: randomQuestion
-        });
-      }
-    });
-  }
+// Role-only, real-world questions (no resume parsing; always varied)
+function generateRoleBasedInterviewQuestions(role) {
+  const roleLabel = String(role || '').trim();
+  const roleLower = roleLabel.toLowerCase();
+  const track = inferTrack(roleLower);
 
-  // 3. PROJECT-BASED QUESTIONS (based on actual projects mentioned)
-  if (projects.length > 0) {
-    projects.slice(0, 2).forEach((project, index) => {
-      if (project.name) {
-        const projectQuestions = [
-          `Your resume mentions the ${project.name} project. Can you walk me through the technical challenges you faced and how you addressed them?`,
-          `In the ${project.name} project, what technologies or methodologies did you use, and why were they appropriate for this work?`,
-          `How did the ${project.name} project contribute to your professional development or technical skills?`,
-          `What was the most valuable lesson you learned from working on the ${project.name} project?`
-        ];
-
-        const randomQuestion = projectQuestions[Math.floor(Math.random() * projectQuestions.length)];
-        questions.push({
-          type: 'technical',
-          question: randomQuestion
-        });
-      }
-    });
-  }
-
-  // 4. EDUCATION-BASED QUESTIONS (if recent graduate or specific field)
-  if (education.length > 0 && experience.length < 2) {
-    const recentEdu = education[0];
-    if (recentEdu.degree && recentEdu.institution) {
-      const educationQuestions = [
-        `As a ${recentEdu.degree} graduate from ${recentEdu.institution}, how have you applied your academic knowledge in practical work settings?`,
-        `Your ${recentEdu.degree} from ${recentEdu.institution} - what specific coursework or projects prepared you for this role?`,
-        `How has your ${recentEdu.degree} education influenced your approach to problem-solving in professional environments?`
-      ];
-
-      const randomQuestion = educationQuestions[Math.floor(Math.random() * educationQuestions.length)];
-      questions.push({
-        type: 'technical',
-        question: randomQuestion
-      });
-    }
-  }
-
-  // 5. BEHAVIORAL QUESTIONS (tailored to resume context)
-  const behavioralQuestions = [];
-
-  // Add leadership questions if they have management experience
-  if (resumeText.toLowerCase().includes('lead') || resumeText.toLowerCase().includes('manage') || resumeText.toLowerCase().includes('team')) {
-    behavioralQuestions.push('Tell me about a time when you had to lead a team through a challenging technical project.');
-  }
-
-  // Add collaboration questions if they mention team work
-  if (resumeText.toLowerCase().includes('collaborat') || resumeText.toLowerCase().includes('team')) {
-    behavioralQuestions.push('Describe a situation where you had to collaborate with colleagues from different departments to solve a problem.');
-  }
-
-  // General behavioral questions
-  const generalBehavioral = [
-    'Tell me about a technical decision you made that had a significant impact on a project.',
-    'Describe a time when you had to adapt quickly to a new technology or process.',
-    'How do you handle receiving constructive criticism about your technical work?',
-    'Tell me about a goal you set for yourself professionally and how you achieved it.',
-    'Describe a situation where you had to balance multiple competing priorities.'
+  const baseContexts = [
+    'a production incident',
+    'a tight deadline with ambiguous requirements',
+    'a performance regression after a release',
+    'a difficult trade-off between quality and speed',
+    'a cross-team dependency that blocked delivery',
+    'a customer-reported bug with limited repro steps'
   ];
 
-  // Add behavioral questions to reach desired count
-  const targetBehavioral = Math.max(2, Math.min(3, 7 - questions.length));
-  while (behavioralQuestions.length < targetBehavioral && generalBehavioral.length > 0) {
-    const randomIndex = Math.floor(Math.random() * generalBehavioral.length);
-    behavioralQuestions.push(generalBehavioral.splice(randomIndex, 1)[0]);
-  }
+  const technicalPools = {
+    frontend: [
+      `Walk me through how you would diagnose and fix a slow ${roleLabel} screen (rendering jank, large bundles, or expensive state updates).`,
+      `How would you design a reusable component API for a design system used by multiple teams? Give examples of prop design and accessibility constraints.`,
+      `Describe a time you had to debug a tricky state-management issue (stale closures, race conditions, or double renders). How did you isolate the root cause?`,
+      `In a real app, how do you handle error states, loading states, and retries for a critical user flow?`,
+      `How would you implement client-side performance monitoring and what signals would you alert on?`
+    ],
+    backend: [
+      `Design a REST API for a high-traffic feature. How do you handle pagination, idempotency, rate limiting, and backward compatibility?`,
+      `You’re on-call and latency spikes after a deploy. As a ${roleLabel}, what steps do you take in the first 30 minutes?`,
+      `How would you choose between caching, query optimization, and data denormalization for a slow endpoint?`,
+      `Explain a real-world approach to securing an API (authn/authz, secrets, input validation, audit logs).`,
+      `How do you design a service to be resilient to downstream failures (timeouts, retries, circuit breakers)?`
+    ],
+    data: [
+      `A stakeholder asks for a metric that can be gamed. How do you define a robust metric and validate it with data?`,
+      `Describe how you would design a data pipeline that is reliable and debuggable (backfills, schema drift, and monitoring).`,
+      `How do you detect and investigate data quality issues in a dashboard that execs use weekly?`,
+      `Walk through how you would evaluate a model or analysis for bias/leakage and communicate limitations to non-technical stakeholders.`,
+      `How do you decide between SQL, Python notebooks, and BI tooling for a given analysis?`
+    ],
+    devops: [
+      `You inherit a flaky CI/CD pipeline. What’s your approach to stabilizing it without slowing teams down?`,
+      `How would you implement observability for a critical service (logs, metrics, traces) and define SLOs?`,
+      `Walk through a realistic incident response for an outage: triage, comms, mitigation, and postmortem actions.`,
+      `How do you manage infrastructure changes safely (terraform planning, approvals, rollbacks, blast radius)?`,
+      `What’s your strategy for cost optimization in cloud without compromising reliability?`
+    ],
+    qa: [
+      `A release is next week and coverage is weak. How do you prioritize tests and risk areas as a ${roleLabel}?`,
+      `Describe how you’d design an automation strategy that balances UI, API, and unit-level tests.`,
+      `How do you handle flaky tests in CI so teams trust the pipeline again?`,
+      `Tell me about a time you found a root cause that wasn’t obvious from the bug report. What was your debugging process?`,
+      `How do you write test cases that catch edge cases without becoming unmaintainable?`
+    ],
+    product: [
+      `A key feature is slipping. How do you re-scope, communicate trade-offs, and keep stakeholders aligned?`,
+      `Describe how you would write a PRD for a complex feature with ambiguous requirements and multiple teams involved.`,
+      `How do you decide what to measure for success and set up an experiment that is trustworthy?`,
+      `Tell me about a time you had to say “no” to a stakeholder request. How did you handle it?`,
+      `How do you make decisions when data is incomplete or noisy?`
+    ],
+    general: [
+      `Describe a real debugging story: what signals did you look at, what hypotheses did you test, and what fixed it?`,
+      `How do you make trade-offs between correctness, performance, and delivery speed on a real project?`,
+      `Walk through how you estimate work when requirements are changing and dependencies are unclear.`,
+      `How do you ensure what you ship is maintainable 6 months later?`,
+      `Tell me about a time you improved a process or system that helped the team move faster.`
+    ]
+  };
 
-  behavioralQuestions.forEach(question => {
-    questions.push({
-      type: 'behavioral',
-      question: question
-    });
-  });
-
-  // 6. SCENARIO-BASED QUESTIONS (industry-relevant)
-  const scenarioQuestions = [
-    'How would you approach debugging a complex issue in a production environment with time pressure?',
-    'If you were asked to estimate a project timeline for unfamiliar work, how would you approach it?',
-    'How do you stay current with industry trends and new technologies in your field?',
-    'Describe your process for explaining complex technical concepts to non-technical stakeholders.',
-    'How do you handle situations where project requirements change midway through development?'
+  const behavioralPool = [
+    `Tell me about a time you took ownership of a problem that wasn’t clearly assigned. What did you do and what changed?`,
+    `Describe a time you disagreed with a technical direction. How did you influence the decision?`,
+    `Tell me about a time you had to communicate bad news (slip, outage, or quality issue) to stakeholders. What did you say?`,
+    `Describe a time you made a mistake in production. How did you respond, and what did you improve afterward?`,
+    `Give an example of how you prioritize when everything feels urgent. What framework do you use?`,
+    `Tell me about a time you mentored someone or raised the bar for the team. What was your approach?`
   ];
 
-  // Add 1-2 scenario questions
-  const numScenarios = Math.min(2, Math.max(0, 7 - questions.length));
-  for (let i = 0; i < numScenarios; i++) {
-    const randomIndex = Math.floor(Math.random() * scenarioQuestions.length);
-    const question = scenarioQuestions.splice(randomIndex, 1)[0];
-    questions.push({
-      type: 'scenario',
-      question: question
-    });
-  }
+  const scenarioPool = baseContexts.map(
+    (ctx) =>
+      `Scenario: You’re in ${ctx}. As a ${roleLabel}, what do you do first, what do you do next, and what do you explicitly NOT do?`
+  );
 
-  // Shuffle and return 5-7 questions
-  const shuffled = questions.sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.floor(Math.random() * 3) + 5); // Random 5-7 questions
+  const targetCount = randomInt(5, 10);
+  const minTechnical = Math.min(5, Math.max(3, Math.floor(targetCount * 0.6)));
+  const minBehavioral = Math.max(2, targetCount - minTechnical - 1);
+
+  const technical = sampleUnique(technicalPools[track] || technicalPools.general, minTechnical).map((q) => ({
+    type: 'technical',
+    question: q
+  }));
+  const behavioral = sampleUnique(behavioralPool, minBehavioral).map((q) => ({
+    type: 'behavioral',
+    question: q
+  }));
+  const remaining = targetCount - technical.length - behavioral.length;
+  const scenario = sampleUnique(scenarioPool, Math.max(0, remaining)).map((q) => ({
+    type: 'scenario',
+    question: q
+  }));
+
+  const all = [...technical, ...behavioral, ...scenario];
+  // Shuffle for variety
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = randomInt(0, i);
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, targetCount);
 }
 
 // @route   POST /api/interview/generate
 // @desc    Generate interview questions
 // @access  Private
 router.post('/generate', auth, [
-  body('resumeId').notEmpty().withMessage('Resume ID is required')
+  body('role').notEmpty().withMessage('Role is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -172,20 +150,10 @@ router.post('/generate', auth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { resumeId } = req.body;
+    const { role } = req.body;
 
-    // Get resume
-    const resume = await Resume.findOne({
-      _id: resumeId,
-      userId: req.user._id
-    });
-
-    if (!resume) {
-      return res.status(404).json({ message: 'Resume not found' });
-    }
-
-    // Generate questions based on resume content
-    const questions = generateInterviewQuestions(resume);
+    // Generate questions using ONLY the role (no resume lookup)
+    const questions = generateRoleBasedInterviewQuestions(role);
 
     res.json({
       message: 'Interview questions generated successfully',

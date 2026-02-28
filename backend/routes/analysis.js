@@ -4,11 +4,123 @@ const Analysis = require('../models/Analysis');
 const Resume = require('../models/Resume');
 const auth = require('../middleware/auth');
 const { analyzeResume } = require('../utils/analysisEngine');
+const { analyzeResumeAgainstJD } = require('../utils/resumeJdAtsModule');
+const { generateAtsFeedback } = require('../services/atsFeedback.service');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+const fsp = require('fs').promises;
+const { extractResumeText } = require('../utils/pdfParser');
 
 const router = express.Router();
+
+// Multer config for ATS module endpoint (PDF/DOCX/TXT)
+const atsStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads/ats');
+    try {
+      await fsp.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (error) {
+      cb(error, null);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname || '');
+    cb(null, `ats-${uniqueSuffix}${ext}`);
+  }
+});
+
+const atsFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+    'text/plain'
+  ];
+  if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(pdf|docx|doc|txt)$/i)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file. Only PDF, DOCX, or TXT are allowed.'), false);
+  }
+};
+
+const atsUpload = multer({
+  storage: atsStorage,
+  fileFilter: atsFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+// @route   POST /api/analysis/ats-module
+// @desc    Strict ATS-style Resume–JD analysis (deterministic scoring + AI feedback)
+// @access  Private
+router.post(
+  '/ats-module',
+  auth,
+  atsUpload.single('resume'),
+  [body('jobDescription').notEmpty().withMessage('Job description is required')],
+  async (req, res) => {
+    let tempPath = null;
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const jobDescription = String(req.body.jobDescription || '');
+      let resumeText = String(req.body.resumeText || '');
+
+      if (req.file) {
+        tempPath = req.file.path;
+        if (req.file.mimetype === 'text/plain' || /\.txt$/i.test(req.file.originalname || '')) {
+          resumeText = await fsp.readFile(req.file.path, 'utf8');
+        } else {
+          const extracted = await extractResumeText(req.file.path, req.file.mimetype);
+          resumeText = extracted.text;
+        }
+      }
+
+      const analysis = await analyzeResumeAgainstJD({
+        resumeRawText: resumeText,
+        jobDescriptionRawText: jobDescription
+      });
+
+      const feedback = await generateAtsFeedback({
+        semantic_score: analysis.semantic_score,
+        skill_match_percentage: analysis.skill_match_percentage,
+        missing_skills: analysis.missing_skills,
+        experience_gap: analysis.experience_gap,
+        section_score: analysis.section_score,
+        candidate_years: analysis.candidate_years,
+        required_years: analysis.required_years
+      });
+
+      return res.json({
+        ats_score: analysis.ats_score,
+        semantic_score: analysis.semantic_score,
+        skill_match_percentage: analysis.skill_match_percentage,
+        experience_score: analysis.experience_score,
+        section_score: analysis.section_score,
+        matched_skills: analysis.matched_skills,
+        missing_skills: analysis.missing_skills,
+        candidate_years: analysis.candidate_years,
+        required_years: analysis.required_years,
+        feedback
+      });
+    } catch (error) {
+      const status = error.statusCode || 500;
+      return res.status(status).json({ message: error.message || 'Error analyzing resume and job description' });
+    } finally {
+      if (tempPath) {
+        try {
+          await fsp.unlink(tempPath);
+        } catch (_) {}
+      }
+    }
+  }
+);
 
 // @route   POST /api/analysis
 // @desc    Analyze resume against job description

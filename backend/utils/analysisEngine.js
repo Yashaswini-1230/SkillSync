@@ -132,21 +132,54 @@ function extractSkills(text) {
  */
 function detectMissingSections(resumeText, parsedData) {
   const missing = [];
-  const lowerText = resumeText.toLowerCase();
+  const text = resumeText || '';
+  const lower = text.toLowerCase();
 
-  if (!parsedData.summary && !lowerText.includes('summary') && !lowerText.includes('objective')) {
+  // Summary / objective
+  const hasSummary =
+    (!!parsedData.summary && String(parsedData.summary).trim().length > 0) ||
+    /\b(summary|professional summary|objective|about me)\b/m.test(lower);
+  if (!hasSummary) {
     missing.push('Professional Summary');
   }
-  if (!parsedData.experience || parsedData.experience.length === 0) {
+
+  // Work experience
+  const hasExperienceHeading = /(^|\n)\s*(experience|work experience|employment|professional experience|work history)\s*[:\n]/m.test(
+    lower
+  );
+  const hasExperienceData =
+    Array.isArray(parsedData.experience) && parsedData.experience.length > 0;
+  if (!hasExperienceHeading && !hasExperienceData) {
     missing.push('Work Experience');
   }
-  if (!parsedData.education || parsedData.education.length === 0) {
+
+  // Education
+  const hasEducationHeading = /(^|\n)\s*(education|academic background|qualifications)\s*[:\n]/m.test(
+    lower
+  );
+  const hasEducationData =
+    Array.isArray(parsedData.education) && parsedData.education.length > 0;
+  if (!hasEducationHeading && !hasEducationData) {
     missing.push('Education');
   }
-  if (!parsedData.skills || parsedData.skills.length === 0) {
+
+  // Skills
+  const hasSkillsHeading = /(^|\n)\s*(skills|technical skills|core skills|skill set)\s*[:\n]/m.test(
+    lower
+  );
+  const hasSkillsData =
+    Array.isArray(parsedData.skills) && parsedData.skills.length > 0;
+  if (!hasSkillsHeading && !hasSkillsData) {
     missing.push('Skills');
   }
-  if (!parsedData.projects || parsedData.projects.length === 0) {
+
+  // Projects
+  const hasProjectsHeading = /(^|\n)\s*(projects|personal projects|academic projects)\s*[:\n]/m.test(
+    lower
+  );
+  const hasProjectsData =
+    Array.isArray(parsedData.projects) && parsedData.projects.length > 0;
+  if (!hasProjectsHeading && !hasProjectsData) {
     missing.push('Projects');
   }
 
