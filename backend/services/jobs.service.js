@@ -1,10 +1,23 @@
 /**
+ * Build a job-search URL (LinkedIn) so "Apply" still redirects when using fallback jobs.
+ */
+function buildJobSearchApplyLink(role, location) {
+  const q = encodeURIComponent(role || 'jobs');
+  const loc = encodeURIComponent(location || '');
+  const params = new URLSearchParams({ keywords: role || '' });
+  if (loc) params.set('location', location);
+  return `https://www.linkedin.com/jobs/search/?${params.toString()}`;
+}
+
+/**
  * Build deterministic fallback jobs when JSearch is not configured or fails.
+ * Each fallback job gets an applyLink to LinkedIn job search so Apply button still redirects.
  */
 function buildFallbackJobs({ role, location, employmentType }) {
   const baseRole = role || 'Software Engineer';
   const loc = location || 'Remote';
   const now = new Date().toISOString();
+  const applyLink = buildJobSearchApplyLink(baseRole, loc);
 
   const typeLabel = employmentType && employmentType !== 'ALL' ? employmentType : 'FULLTIME';
 
@@ -14,27 +27,27 @@ function buildFallbackJobs({ role, location, employmentType }) {
       jobTitle: `${baseRole} (${typeLabel})`,
       company: 'SampleTech Labs',
       description:
-        `Sample role for practicing job search in SkillSync. Work on real-world style projects, code reviews, and collaboration. This listing is offline demo data, not a live opening.`,
+        `Sample role for practicing job search in SkillSync. Work on real-world style projects, code reviews, and collaboration. This listing is offline demo data; use Apply to search real openings.`,
       employmentType: typeLabel,
-      applyLink: null
+      applyLink
     },
     {
       id: 'sample-2',
       jobTitle: `${baseRole} - Product Engineering`,
       company: 'DemoStack Systems',
       description:
-        `Demo listing that mimics a typical ${baseRole} description: shipping features, debugging production issues, and working with product/design. Use this to test your workflow end-to-end.`,
+        `Demo listing that mimics a typical ${baseRole} description: shipping features, debugging production issues, and working with product/design. Use Apply to find real roles.`,
       employmentType: typeLabel,
-      applyLink: null
+      applyLink
     },
     {
       id: 'sample-3',
       jobTitle: `${baseRole} (Early Career)`,
       company: 'PracticeWorks',
       description:
-        `Practice-only role to help you test SkillSync without a live API key. Focus on reading the description, tailoring your resume, and using Interview Prep.`,
+        `Practice-only role to help you test SkillSync without a live API key. Use Apply to search real job boards for ${baseRole} roles.`,
       employmentType: typeLabel,
-      applyLink: null
+      applyLink
     }
   ];
 
