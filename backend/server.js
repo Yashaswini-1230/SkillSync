@@ -4,7 +4,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 
-dotenv.config();
+// Load .env from backend folder so RAPIDAPI_KEY and other keys in backend/.env are found
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 

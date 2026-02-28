@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "nodemon backend/server.js",
-    "client": "cd frontend && set PORT=3001 && npm start",
+    "client": "cd frontend && set PORT=3000 && npm start",
     "install-server": "cd backend && npm install",
     "install-client": "cd frontend && npm install",
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
