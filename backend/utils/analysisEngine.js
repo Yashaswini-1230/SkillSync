@@ -1,5 +1,15 @@
 const natural = require('natural');
-const nlp = require('compromise');
+
+// Lazy-load compromise on first use to avoid slow server startup
+let nlp = null;
+function loadNLP() {
+  if (!nlp) {
+    console.log('⏳ Loading NLP library (first time, may take a moment)...');
+    nlp = require('compromise');
+      console.log('✅ NLP library loaded');
+  }
+  return nlp;
+}
 
 /**
  * Calculate TF-IDF vectors for text
@@ -67,7 +77,7 @@ function extractSkills(text) {
   });
 
   // Use NLP to extract noun phrases that might be skills
-  const doc = nlp(text);
+  const doc = loadNLP()(text);
   const nouns = doc.nouns().out('array');
   nouns.forEach(noun => {
     const lowerNoun = noun.toLowerCase();
