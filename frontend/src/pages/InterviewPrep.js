@@ -1,46 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
-import { FiMessageSquare, FiFileText, FiBriefcase } from 'react-icons/fi';
+import { FiMessageSquare, FiFileText, FiBriefcase, FiSliders } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const InterviewPrep = () => {
-  const [resumes, setResumes] = useState([]);
-  const [selectedResume, setSelectedResume] = useState('');
   const [generating, setGenerating] = useState(false);
   const [questions, setQuestions] = useState([]);
+  const [role, setRole] = useState('');
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-  useEffect(() => {
-    fetchResumes();
-  }, []);
+  const roleOptions = [
+    'Software Engineer',
+    'Frontend Developer',
+    'Backend Developer',
+    'Full Stack Developer',
+    'Data Analyst',
+    'Data Scientist',
+    'DevOps Engineer',
+    'Machine Learning Engineer',
+    'Product Manager',
+    'UI/UX Designer',
+    'Other'
+  ];
 
-  const fetchResumes = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/resumes`);
-      setResumes(response.data);
-      if (response.data.length > 0) {
-        setSelectedResume(response.data[0]._id);
-      }
-    } catch (error) {
-      console.error('Error fetching resumes:', error);
-      toast.error('Failed to load resumes');
-    }
+  const normalizeQuestions = (rawQuestions) => {
+    const technical = [];
+    const hr = [];
+
+    (rawQuestions || []).forEach((q) => {
+      const type = q.type || 'technical';
+      const bucket = type === 'behavioral' || type === 'hr' ? hr : technical;
+      bucket.push(q);
+    });
+
+    return { technical, hr };
   };
 
   const handleGenerate = async () => {
-    if (!selectedResume) {
-      toast.error('Please select a resume');
+    if (!role) {
+      toast.error('Please select a target role');
       return;
     }
 
     setGenerating(true);
     try {
       const response = await axios.post(`${API_URL}/interview/generate`, {
-        resumeId: selectedResume
+        role
       });
 
-      setQuestions(response.data.questions);
+      const normalized = normalizeQuestions(response.data.questions || []);
+      setQuestions(normalized);
       toast.success(`Generated ${response.data.questions.length} interview questions!`);
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to generate questions';
@@ -52,104 +62,123 @@ const InterviewPrep = () => {
 
   return (
     <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center space-x-3 mb-8">
-          <FiMessageSquare size={32} className="text-primary-600" />
-          <h1 className="text-3xl font-bold text-gray-900">AI Interview Preparation</h1>
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+              <FiMessageSquare size={24} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">AI Interview Preparation</h1>
+              <p className="text-gray-600">
+                Generate interview questions tailored to your target role.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-8 mb-8">
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Resume
-              </label>
-            {resumes.length === 0 ? (
-              <div className="text-center py-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 mb-4">No resumes uploaded yet.</p>
-                <a
-                  href="/upload"
-                  className="text-primary-600 hover:text-primary-700 font-medium"
+        {/* Controls */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Left: role-based generation only */}
+          <div className="card-enhanced p-6 lg:col-span-2">
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Target Role
+                </label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="input-enhanced"
                 >
-                  Upload a resume first
-                </a>
+                  <option value="">Select a role</option>
+                  {roleOptions.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ) : (
-              <select
-                value={selectedResume}
-                onChange={(e) => setSelectedResume(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+
+              {/* Generate button */}
+              <button
+                onClick={handleGenerate}
+                disabled={generating || !role}
+                className="w-full btn-primary flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {resumes.map((resume) => (
-                  <option key={resume._id} value={resume._id}>
-                    {resume.originalName}
-                  </option>
-                ))}
-              </select>
-            )}
+                <FiSliders size={20} />
+                <span>{generating ? 'Generating...' : 'Generate Interview Questions'}</span>
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={handleGenerate}
-            disabled={generating || !selectedResume}
-            className="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-          >
-              <FiMessageSquare size={20} />
-              <span>{generating ? 'Generating Questions...' : 'Generate Interview Questions'}</span>
-            </button>
+          {/* Right: helper card */}
+          <div className="card-enhanced p-6 bg-gradient-to-br from-primary-50 to-indigo-50">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">How to use this</h3>
+            <p className="text-xs text-gray-600 mb-3">
+              Pick the role you are interviewing for and generate realistic technical, behavioral, and scenario questions. Practice answering them on your own.
+            </p>
+            <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
+              <li>5–10 role-specific technical questions</li>
+              <li>Behavioral and scenario questions like a real interview</li>
+            </ul>
           </div>
         </div>
 
         {/* Questions Display */}
-        {questions.length > 0 && (
+        {questions.technical && (questions.technical.length > 0 || questions.hr.length > 0) && (
           <div className="bg-white rounded-xl shadow-md p-8">
             <div className="flex items-center space-x-3 mb-6">
               <FiBriefcase size={24} className="text-primary-600" />
               <h2 className="text-2xl font-bold text-gray-900">
-                Your Interview Questions ({questions.length})
+                Your Interview Questions ({questions.technical.length + questions.hr.length})
               </h2>
             </div>
 
-            <div className="space-y-6">
-              {questions.map((q, idx) => (
-                <div
-                  key={idx}
-                  className="border-l-4 border-primary-500 pl-6 py-4 bg-gray-50 rounded-r-lg"
-                >
-                  <div className="flex items-start space-x-3">
-                    <span className="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-semibold">
-                      {idx + 1}
-                    </span>
-                    <div className="flex-1">
-                      <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-medium mb-2 ${
-                          q.type === 'technical'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}
-                      >
-                        {q.type === 'technical' ? 'Technical' : 'Behavioral'}
-                      </span>
-                      <p className="text-gray-900 font-medium">{q.question}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Technical Questions ({questions.technical.length})
+                </h3>
+                <div className="space-y-4">
+                  {questions.technical.map((q, idx) => (
+                    <div
+                      key={`tech-${idx}`}
+                      className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50/60 rounded-r-lg"
+                    >
+                      <p className="text-sm font-medium text-gray-900">{q.question}</p>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  HR / Behavioral Questions ({questions.hr.length})
+                </h3>
+                <div className="space-y-4">
+                  {questions.hr.map((q, idx) => (
+                    <div
+                      key={`hr-${idx}`}
+                      className="border-l-4 border-purple-500 pl-4 py-3 bg-purple-50/70 rounded-r-lg"
+                    >
+                      <p className="text-sm font-medium text-gray-900">{q.question}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="mt-8 p-4 bg-primary-50 rounded-lg">
-              <p className="text-sm text-primary-800">
-                <strong>Tip:</strong> Practice answering these questions out loud. Prepare specific examples
-                from your experience that demonstrate your skills and achievements.
-              </p>
-            </div>
           </div>
         )}
 
-        {questions.length === 0 && !generating && (
+        {!questions.technical && !generating && (
           <div className="bg-white rounded-xl shadow-md p-8 text-center">
             <FiFileText size={48} className="text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">Select your resume and job role, then generate interview questions.</p>
+            <p className="text-gray-600">
+              Select a target role, then generate interview questions.
+            </p>
           </div>
         )}
       </div>

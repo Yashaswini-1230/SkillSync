@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   FiArrowRight,
   FiBarChart2,
@@ -13,9 +13,6 @@ import { useAuth } from '../context/AuthContext';
 
 const LandingPage = () => {
   const { user } = useAuth();
-
-  // Keep the authenticated experience unchanged.
-  if (user) return <Navigate to="/dashboard" replace />;
 
   const features = [
     {
@@ -87,7 +84,7 @@ const LandingPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-700 via-purple-700 to-fuchsia-700 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-primary-700 via-primary-800 to-primary-900 text-white">
       {/* Top Nav */}
       <header className="sticky top-0 z-40 bg-white/10 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -98,18 +95,29 @@ const LandingPage = () => {
             <span className="text-lg font-semibold tracking-tight">SkillSync</span>
           </div>
           <div className="flex items-center space-x-3">
-            <Link
-              to="/login"
-              className="px-4 py-2 rounded-xl text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 font-semibold"
-            >
-              Login
-            </Link>
-            <Link
-              to="/signup"
-              className="px-4 py-2 rounded-xl bg-white text-indigo-700 hover:bg-white/90 shadow-lg hover:shadow-xl transition-all duration-200 font-bold"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <Link
+                to="/dashboard"
+                className="px-4 py-2 rounded-xl bg-white text-primary-700 hover:bg-white/90 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 rounded-xl text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 font-semibold"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 py-2 rounded-xl bg-white text-primary-700 hover:bg-white/90 shadow-lg hover:shadow-xl transition-all duration-200 font-bold"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -142,7 +150,7 @@ const LandingPage = () => {
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
               <Link
                 to="/signup"
-                className="group inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-white text-indigo-700 font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-200"
+                className="group inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-white text-primary-700 font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-200"
               >
                 Get Started
                 <FiArrowRight className="ml-2 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -194,7 +202,7 @@ const LandingPage = () => {
                   key={f.title}
                   className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl border border-gray-100 p-6 transition-all duration-300 hover:-translate-y-1"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-300">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-300">
                     <Icon size={22} />
                   </div>
                   <h3 className="mt-5 font-bold text-lg">{f.title}</h3>
@@ -227,7 +235,7 @@ const LandingPage = () => {
                   className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-2xl transition-all duration-300"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-primary-100 text-primary-700 flex items-center justify-center">
                       <Icon size={22} />
                     </div>
                     <span className="text-sm font-bold text-gray-400">
@@ -244,7 +252,7 @@ const LandingPage = () => {
           <div className="mt-10 flex justify-center">
             <Link
               to="/signup"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-200"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-200"
             >
               Start Free
               <FiArrowRight className="ml-2" />
@@ -277,7 +285,7 @@ const LandingPage = () => {
                     <div className="font-bold text-gray-900">{t.name}</div>
                     <div className="text-sm text-gray-500">{t.role}</div>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600" />
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700" />
                 </div>
               </div>
             ))}

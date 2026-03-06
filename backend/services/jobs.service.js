@@ -1,12 +1,10 @@
 /**
  * Call JSearch RapidAPI to fetch jobs based on search filters.
- * Uses RAPIDAPI_KEY from environment variables.
+ * Requires RAPIDAPI_KEY (or RAPID_API_KEY, JSEARCH_RAPIDAPI_KEY, RAPIDAPIKEY) in environment.
  */
 async function searchJobsFromAPI({ role, location, employmentType }) {
   let axios;
   try {
-    // Lazy-load axios so that missing dependency does not crash the whole server at startup
-    // If axios is not installed, this endpoint will return a clear error instead.
     axios = require('axios');
   } catch (e) {
     const error = new Error('Axios is not installed on the backend. Please run "npm install axios" in the backend folder to enable Jobs search.');
@@ -14,10 +12,16 @@ async function searchJobsFromAPI({ role, location, employmentType }) {
     throw error;
   }
 
-  const apiKey = process.env.RAPIDAPI_KEY;
+  const rawKey =
+    process.env.RAPIDAPI_KEY ||
+    process.env.RAPID_API_KEY ||
+    process.env.JSEARCH_RAPIDAPI_KEY ||
+    process.env.RAPIDAPIKEY ||
+    '';
+  const apiKey = typeof rawKey === 'string' ? rawKey.trim() : '';
 
   if (!apiKey) {
-    const error = new Error('JSearch API key is not configured');
+    const error = new Error('JSearch API key is not configured. Add RAPIDAPI_KEY to your backend/.env file.');
     error.statusCode = 500;
     throw error;
   }
@@ -91,9 +95,11 @@ async function searchJobsFromAPI({ role, location, employmentType }) {
       };
     });
 
+    // When API key is set, return real results only (empty array if no jobs found).
     return jobs;
   } catch (err) {
-    const error = new Error('Failed to fetch jobs from JSearch API');
+    // When API key is set, do not hide errors: rethrow so the user sees the real API failure.
+    const error = new Error(err.response?.data?.message || err.message || 'Failed to fetch jobs from JSearch API');
     error.statusCode = err.response?.status || 502;
     error.details = err.response?.data || null;
     throw error;
