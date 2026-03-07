@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FiSave, FiDownload, FiPlus, FiTrash2 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import TemplatePreview from '../components/TemplatePreview';
+import TemplatePreview from '../components/TemplatePreview.jsx';
 
 const ResumeBuilder = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -241,7 +241,7 @@ const ResumeBuilder = () => {
     }
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const response = await axios.post(`${API_URL}/saved-resumes`, {
         name: resumeName.trim(),
         template: selectedTemplate.id,
@@ -263,7 +263,7 @@ const ResumeBuilder = () => {
       return;
     }
 
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
     try {
       let resumeId = savedResumeId;

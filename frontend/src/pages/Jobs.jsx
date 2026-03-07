@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FiSearch, FiRefreshCw } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import JobCard from '../components/JobCard';
+import JobCard from '../components/JobCard.jsx';
 import { searchJobs } from '../services/jobsService';
 
 const roleOptions = [
@@ -40,49 +40,67 @@ const Jobs = () => {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
+const handleSearch = async (e) => {
+  e.preventDefault();
 
-    const finalRole =
-      selectedRole === 'Other' ? customRole.trim() : selectedRole.trim();
+  const finalRole =
+    selectedRole === "Other" ? customRole.trim() : selectedRole.trim();
 
-    if (!finalRole) {
-      toast.error('Please select or enter a job role to search');
-      return;
+  if (!finalRole) {
+    toast.error("Please select or enter a job role to search");
+    return;
+  }
+
+  const finalLocation =
+    selectedLocation === "Other"
+      ? customLocation.trim()
+      : selectedLocation === "Any"
+      ? ""
+      : selectedLocation;
+
+  setLoading(true);
+  setHasSearched(true);
+
+  try {
+    const response = await searchJobs({
+      role: finalRole,
+      location: finalLocation,
+      employmentType
+    });
+
+    if (response?.success && response?.data?.length > 0) {
+      setJobs(response.data);
+    } else {
+      setJobs([]);
     }
 
-    const finalLocation =
-      selectedLocation === 'Other'
-        ? customLocation.trim()
-        : selectedLocation === 'Any'
-        ? ''
-        : selectedLocation;
+  } catch (error) {
 
-    setLoading(true);
-    setHasSearched(true);
+    console.log("Retrying job search...");
 
+    // Retry request once if timeout happens
     try {
-      const response = await searchJobs({
+      const retryResponse = await searchJobs({
         role: finalRole,
         location: finalLocation,
         employmentType
       });
 
-      if (response?.success) {
-        setJobs(response.data || []);
+      if (retryResponse?.success && retryResponse?.data?.length > 0) {
+        setJobs(retryResponse.data);
       } else {
         setJobs([]);
-        toast.error(response?.message || 'Failed to fetch jobs');
       }
-    } catch (error) {
+
+    } catch {
+      // if retry also fails just stop loading
       setJobs([]);
-      const message =
-        error.response?.data?.message || 'Failed to fetch jobs. Please try again.';
-      toast.error(message);
-    } finally {
-      setLoading(false);
     }
-  };
+
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleClear = () => {
     setSelectedRole('');

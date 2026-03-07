@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext.jsx';
 import { FiUpload, FiSearch, FiDownload, FiCalendar } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -16,7 +16,7 @@ const Dashboard = () => {
     avgAtsScore: 0
   });
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
     fetchData();

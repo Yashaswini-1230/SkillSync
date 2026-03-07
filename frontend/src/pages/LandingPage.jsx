@@ -9,7 +9,7 @@ import {
   FiShield,
   FiZap
 } from 'react-icons/fi';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const LandingPage = () => {
   const { user } = useAuth();
