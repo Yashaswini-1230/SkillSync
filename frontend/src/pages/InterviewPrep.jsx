@@ -1,189 +1,232 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import { FiMessageSquare, FiFileText, FiBriefcase, FiSliders } from 'react-icons/fi';
+import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, User, Bot, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const SOCKET_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
+
 const InterviewPrep = () => {
-  const [generating, setGenerating] = useState(false);
-  const [questions, setQuestions] = useState([]);
-  const [role, setRole] = useState('');
+    const [socket, setSocket] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
+    const [sessionActive, setSessionActive] = useState(false);
+    
+    const [resumeContext, setResumeContext] = useState("React, Node.js, MongoDB developer with 3 years experience.");
+    const [targetRole, setTargetRole] = useState("Full Stack Developer");
+    
+    const messagesEndRef = useRef(null);
 
+<<<<<<< Updated upstream:frontend/src/pages/InterviewPrep.jsx
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+=======
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+>>>>>>> Stashed changes:frontend/src/pages/InterviewPrep.js
 
-  const roleOptions = [
-    'Software Engineer',
-    'Frontend Developer',
-    'Backend Developer',
-    'Full Stack Developer',
-    'Data Analyst',
-    'Data Scientist',
-    'DevOps Engineer',
-    'Machine Learning Engineer',
-    'Product Manager',
-    'UI/UX Designer',
-    'Other'
-  ];
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, isTyping]);
 
-  const normalizeQuestions = (rawQuestions) => {
-    const technical = [];
-    const hr = [];
+    const startSession = (e) => {
+        e.preventDefault();
+        
+        const newSocket = io(`${SOCKET_URL}/interview`);
+        
+        newSocket.on('connect', () => {
+            console.log("Connected to interview socket");
+            newSocket.emit('join_session', { resumeContext, targetRole });
+        });
 
-    (rawQuestions || []).forEach((q) => {
-      const type = q.type || 'technical';
-      const bucket = type === 'behavioral' || type === 'hr' ? hr : technical;
-      bucket.push(q);
-    });
+        newSocket.on('session_started', () => {
+            setSessionActive(true);
+            setMessages([{
+                id: Date.now(),
+                role: 'system',
+                content: `Session started for role: ${targetRole}. I am your AI interviewer. Let's begin!`
+            }]);
+            
+            // Request first question
+            setIsTyping(true);
+            newSocket.emit('request_question');
+        });
 
-    return { technical, hr };
-  };
+        newSocket.on('receive_question', (data) => {
+            setIsTyping(false);
+            setMessages(prev => [...prev, { id: Date.now(), role: 'ai', content: data.question }]);
+        });
 
-  const handleGenerate = async () => {
-    if (!role) {
-      toast.error('Please select a target role');
-      return;
-    }
+        newSocket.on('evaluation_result', (data) => {
+            setMessages(prev => [...prev, { 
+                id: Date.now(), 
+                role: 'system', 
+                content: `Feedback: ${data.feedback} (Score: ${data.score}/10)`
+            }]);
+            
+            // Request next question automatically after evaluating
+            setIsTyping(true);
+            newSocket.emit('request_question');
+        });
 
-    setGenerating(true);
-    try {
-      const response = await axios.post(`${API_URL}/interview/generate`, {
-        role
-      });
+        newSocket.on('error', (data) => {
+            setIsTyping(false);
+            toast.error(data.message || "An error occurred");
+        });
 
-      const normalized = normalizeQuestions(response.data.questions || []);
-      setQuestions(normalized);
-      toast.success(`Generated ${response.data.questions.length} interview questions!`);
-    } catch (error) {
-      const message = error.response?.data?.message || 'Failed to generate questions';
-      toast.error(message);
-    } finally {
-      setGenerating(false);
-    }
-  };
+        setSocket(newSocket);
 
-  return (
-    <div className="min-h-screen page-content pt-20 px-4 sm:px-6 lg:px-8 py-8 pb-20">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-              <FiMessageSquare size={24} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">AI Interview Preparation</h1>
-              <p className="text-gray-600">
-                Generate interview questions tailored to your target role.
-              </p>
-            </div>
-          </div>
-        </div>
+        return () => newSocket.disconnect();
+    };
 
-        {/* Controls */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Left: role-based generation only */}
-          <div className="card-enhanced p-6 lg:col-span-2">
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Target Role
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="input-enhanced"
+    const sendMessage = (e) => {
+        e.preventDefault();
+        if (!input.trim() || !socket) return;
+
+        setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: input }]);
+        socket.emit('submit_answer', { answer: input });
+        setInput('');
+        setIsTyping(true);
+    };
+
+    if (!sessionActive) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8"
                 >
-                  <option value="">Select a role</option>
-                  {roleOptions.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Bot size={32} />
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-900">AI Mock Interview</h1>
+                        <p className="text-gray-500 mt-2">Practice your interview skills with contextual, dynamic AI.</p>
+                    </div>
 
-              {/* Generate button */}
-              <button
-                onClick={handleGenerate}
-                disabled={generating || !role}
-                className="w-full btn-primary flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <FiSliders size={20} />
-                <span>{generating ? 'Generating...' : 'Generate Interview Questions'}</span>
-              </button>
+                    <form onSubmit={startSession} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Target Role</label>
+                            <input 
+                                type="text"
+                                value={targetRole}
+                                onChange={(e) => setTargetRole(e.target.value)}
+                                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Resume Context Summary (Auto-extracted in prod)</label>
+                            <textarea 
+                                value={resumeContext}
+                                onChange={(e) => setResumeContext(e.target.value)}
+                                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none transition h-24"
+                                required
+                            />
+                        </div>
+                        <button 
+                            type="submit"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition shadow-lg shadow-blue-200"
+                        >
+                            Start Interview
+                        </button>
+                    </form>
+                </motion.div>
             </div>
-          </div>
+        );
+    }
 
-          {/* Right: helper card */}
-          <div className="card-enhanced p-6 bg-gradient-to-br from-primary-50 to-indigo-50">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">How to use this</h3>
-            <p className="text-xs text-gray-600 mb-3">
-              Pick the role you are interviewing for and generate realistic technical, behavioral, and scenario questions. Practice answering them on your own.
-            </p>
-            <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
-              <li>5–10 role-specific technical questions</li>
-              <li>Behavioral and scenario questions like a real interview</li>
-            </ul>
-          </div>
+    return (
+        <div className="min-h-screen bg-gray-50 flex flex-col max-w-4xl mx-auto p-4 md:p-8">
+            <div className="bg-white rounded-t-2xl shadow-sm border-b p-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        <Bot size={20} />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-gray-900">AI Interviewer</h2>
+                        <p className="text-xs text-gray-500">Role: {targetRole}</p>
+                    </div>
+                </div>
+                <button 
+                    onClick={() => { socket?.disconnect(); setSessionActive(false); }}
+                    className="text-sm text-red-500 hover:text-red-600 font-medium px-3 py-1 bg-red-50 rounded-lg"
+                >
+                    End Session
+                </button>
+            </div>
+
+            <div className="flex-1 bg-white shadow-sm overflow-y-auto p-4 space-y-6 min-h-[500px]">
+                <AnimatePresence>
+                    {messages.map((msg) => (
+                        <motion.div 
+                            key={msg.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                            <div className={`flex max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    msg.role === 'user' ? 'bg-blue-600 text-white ml-2' : 
+                                    msg.role === 'system' ? 'bg-orange-100 text-orange-600 mr-2' : 'bg-gray-200 text-gray-600 mr-2'
+                                }`}>
+                                    {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                                </div>
+                                
+                                <div className={`px-4 py-3 rounded-2xl ${
+                                    msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 
+                                    msg.role === 'system' ? 'bg-orange-50 text-orange-800 border border-orange-100 rounded-bl-none text-sm' :
+                                    'bg-gray-100 text-gray-800 rounded-bl-none'
+                                }`}>
+                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+
+                {isTyping && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-center space-x-2 text-gray-500"
+                    >
+                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                            <Bot size={16} />
+                        </div>
+                        <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-none flex space-x-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                        </div>
+                    </motion.div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+            <div className="bg-white rounded-b-2xl shadow-sm border-t p-4">
+                <form onSubmit={sendMessage} className="relative">
+                    <input 
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Type your answer here..."
+                        disabled={isTyping}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition disabled:opacity-50"
+                    />
+                    <button 
+                        type="submit"
+                        disabled={!input.trim() || isTyping}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                        {isTyping ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    </button>
+                </form>
+            </div>
         </div>
-
-        {/* Questions Display */}
-        {questions.technical && (questions.technical.length > 0 || questions.hr.length > 0) && (
-          <div className="bg-white rounded-xl shadow-md p-8">
-            <div className="flex items-center space-x-3 mb-6">
-              <FiBriefcase size={24} className="text-primary-600" />
-              <h2 className="text-2xl font-bold text-gray-900">
-                Your Interview Questions ({questions.technical.length + questions.hr.length})
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  Technical Questions ({questions.technical.length})
-                </h3>
-                <div className="space-y-4">
-                  {questions.technical.map((q, idx) => (
-                    <div
-                      key={`tech-${idx}`}
-                      className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50/60 rounded-r-lg"
-                    >
-                      <p className="text-sm font-medium text-gray-900">{q.question}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  HR / Behavioral Questions ({questions.hr.length})
-                </h3>
-                <div className="space-y-4">
-                  {questions.hr.map((q, idx) => (
-                    <div
-                      key={`hr-${idx}`}
-                      className="border-l-4 border-purple-500 pl-4 py-3 bg-purple-50/70 rounded-r-lg"
-                    >
-                      <p className="text-sm font-medium text-gray-900">{q.question}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {!questions.technical && !generating && (
-          <div className="bg-white rounded-xl shadow-md p-8 text-center">
-            <FiFileText size={48} className="text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">
-              Select a target role, then generate interview questions.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    );
 };
 
 export default InterviewPrep;

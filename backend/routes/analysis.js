@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const Analysis = require("../models/Analysis");
@@ -12,6 +13,22 @@ const axios = require("axios");
 const { analyzeResume } = require("../utils/analysisEngine");
 const { extractResumeText } = require("../utils/pdfParser");
 const { generateAtsFeedback } = require("../services/atsFeedback.service");
+=======
+const express = require('express');
+const { body, validationResult } = require('express-validator');
+const Analysis = require('../models/Analysis');
+const Resume = require('../models/Resume');
+const auth = require('../middleware/auth');
+const { analyzeResume } = require('../utils/analysisEngine');
+const { analyzeResumeAgainstJD } = require('../utils/resumeJdAtsModule');
+const { generateAtsFeedback } = require('../services/atsFeedback.service');
+const { generatePDFFromHTML, createReportTemplate } = require('../services/pdfService');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const fsp = require('fs').promises;
+const { extractResumeText } = require('../utils/pdfParser');
+>>>>>>> Stashed changes
 
 const router = express.Router();
 
@@ -256,6 +273,7 @@ router.get("/:id/download", auth, async (req, res) => {
       return res.status(404).json({ message: "Analysis not found" });
     }
 
+<<<<<<< Updated upstream
     const doc = new PDFDocument({ margin: 50 });
 
     const filename = `resume-analysis-${analysis._id}.pdf`;
@@ -293,10 +311,33 @@ router.get("/:id/download", auth, async (req, res) => {
 
     doc.end();
 
+=======
+    // Map DB fields to template fields
+    const analysisData = {
+        ats_score: analysis.atsScore || analysis.ats_score || 0,
+        missing_skills: analysis.missingSkills || analysis.missing_skills || [],
+        strengths: analysis.matchingSkills || analysis.matched_skills || [],
+        feedback: analysis.feedback || analysis.suggestions?.join('\n') || 'No feedback generated yet.'
+    };
+
+    // Create PDF via Puppeteer
+    const htmlTemplate = createReportTemplate(analysisData);
+    const pdfBuffer = await generatePDFFromHTML(htmlTemplate);
+
+    const filename = `skillsync-report-${analysis._id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+    
+>>>>>>> Stashed changes
   } catch (error) {
     console.error("PDF error:", error);
     res.status(500).json({ message: "Error generating PDF" });
   }
 });
 
+<<<<<<< Updated upstream
 module.exports = router;
+=======
+module.exports = router;
+>>>>>>> Stashed changes
