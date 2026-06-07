@@ -4,3 +4,7 @@ node_modules/
 .DS_Store
 dist/
 build/
+
+# Python cache files
+__pycache__/
+*.pyc
