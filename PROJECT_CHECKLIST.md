@@ -11,7 +11,7 @@
 - [x] PDF/DOCX text extraction
 - [x] Resume parsing (extract name, email, skills, etc.)
 - [x] Advanced analysis engine (TF-IDF + cosine similarity)
-- [x] Skill extraction using NER and phrase matching
+- [x] Skill extraction using custom skill matching and phrase matching
 - [x] ATS score calculation
 - [x] Missing skills detection
 - [x] Missing sections detection

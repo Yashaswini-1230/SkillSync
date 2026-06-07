@@ -1,151 +1,142 @@
 # SkillSync - Resume Analysis Platform
 
-A comprehensive MERN stack application for resume analysis, ATS optimization, and job matching.
+SkillSync is a MERN + FastAPI application for resume upload, ATS analysis, skill matching, resume building, job search, and interview practice.
 
-## 🚀 Features
+## Features
 
-- **User Authentication** - Secure signup/login with JWT
-- **Resume Upload** - Upload and manage PDF/DOCX resumes
-- **Resume Analysis** - Advanced analysis using TF-IDF and cosine similarity
-- **ATS Score** - Get your resume's ATS compatibility score
-- **Resume Builder** - Build professional resumes with live preview
-- **AI Interview Prep** - Generate role-specific interview questions
-- **Profile Management** - Update your account information
+- User authentication with JWT
+- PDF/DOCX resume upload and parsing
+- ATS resume analysis with matching and missing skills
+- FastAPI AI service for semantic similarity, skill extraction, resume feedback, and interview AI
+- Resume builder with live preview
+- Job search integration
+- PDF analysis reports
+- Dashboard and profile management
 
-## 🛠️ Tech Stack
-
-### Backend
-- Node.js + Express.js
-- MongoDB Atlas (Mongoose)
-- JWT Authentication
-- Multer for file uploads
-- PDF parsing and generation
-- Natural Language Processing (TF-IDF, cosine similarity)
+## Tech Stack
 
 ### Frontend
-- React.js
+- React
+- Vite
 - Tailwind CSS
 - React Router
-- Axios for API calls
-- React Hot Toast for notifications
+- Axios
+- Socket.IO client
 
-## 📦 Installation
+### Backend
+- Node.js
+- Express
+- MongoDB + Mongoose
+- JWT authentication
+- Multer file uploads
+- PDF/DOCX parsing
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd skillsync
-   ```
+### AI Service
+- FastAPI
+- spaCy for resume parsing and basic NLP
+- Custom skill extractor for technical skills
+- sentence-transformers for semantic resume/job-description similarity
+- Optional Gemini/OpenAI-style LLM feedback through environment keys
 
-2. **Install dependencies**
-   ```bash
-   npm run install-all
-   ```
+## Project Structure
 
-3. **Set up environment variables**
-   
-   Create `backend/.env` file:
-   ```env
-   PORT=5000
-   MONGODB_URI=your_mongodb_atlas_connection_string
-   JWT_SECRET=your_super_secret_jwt_key_here
-   NODE_ENV=development
-   ```
-
-   Create `frontend/.env` file:
-   ```env
-   REACT_APP_API_URL=http://localhost:5000/api
-   ```
-
-4. **Start the development servers**
-   ```bash
-   npm run dev
-   ```
-
-   This will start:
-   - Backend server on `http://localhost:5000`
-   - Frontend app on `http://localhost:3000`
-
-## 📁 Project Structure
-
-```
+```text
 skillsync/
-├── backend/
-│   ├── models/          # MongoDB models
-│   ├── routes/          # API routes
-│   ├── middleware/      # Auth middleware
-│   ├── utils/           # Utility functions (PDF parser, analysis engine)
-│   ├── uploads/         # Uploaded files
-│   └── server.js        # Express server
-├── frontend/
-│   ├── src/
-│   │   ├── components/  # Reusable components
-│   │   ├── pages/       # Page components
-│   │   ├── context/     # React context (Auth)
-│   │   └── App.js       # Main app component
-│   └── public/
-└── package.json
+  ai-service/
+    main.py
+    routers/
+    services/
+  backend/
+    models/
+    routes/
+    middleware/
+    services/
+    utils/
+    server.js
+  frontend/
+    src/
+    index.html
+  package.json
 ```
 
-## 🔑 API Endpoints
+`ai-service` is the single Python AI service for this project.
 
-### Authentication
-- `POST /api/auth/signup` - Register new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user
+## Installation
 
-### Resumes
-- `POST /api/resumes/upload` - Upload resume
-- `GET /api/resumes` - Get all resumes
-- `GET /api/resumes/:id` - Get specific resume
-- `DELETE /api/resumes/:id` - Delete resume
+Install Node and Python dependencies:
 
-### Analysis
-- `POST /api/analysis` - Analyze resume
-- `GET /api/analysis` - Get all analyses
-- `GET /api/analysis/:id` - Get specific analysis
-- `GET /api/analysis/:id/download` - Download PDF report
+```bash
+npm run install-all
+```
 
-### Profile
-- `GET /api/profile` - Get user profile
-- `PUT /api/profile` - Update profile
+Or install separately:
 
-### Interview
-- `POST /api/interview/generate` - Generate interview questions
+```bash
+npm install
+cd backend && npm install
+cd ../frontend && npm install
+cd ../ai-service && pip install -r requirements.txt
+```
 
-## 🎨 UI Features
+## Environment Variables
 
-- Fixed top navbar
-- Hamburger sidebar menu
-- Responsive design
-- Professional color scheme
-- Smooth animations and transitions
-- Loading states
-- Error handling
-- Toast notifications
+Create `backend/.env`:
 
-## 📝 Usage
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=change_this_to_a_random_secret_key
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+AI_SERVICE_URL=http://127.0.0.1:8000
+RAPIDAPI_KEY=
+```
 
-1. **Sign Up** - Create a new account
-2. **Upload Resume** - Upload your resume (PDF or DOCX)
-3. **Analyze** - Select resume, enter job role and description
-4. **View Results** - Get ATS score, matching/missing skills, and suggestions
-5. **Download Report** - Download detailed PDF analysis report
-6. **Build Resume** - Use the resume builder to create professional resumes
-7. **Interview Prep** - Generate interview questions based on your resume
+Create `frontend/.env`:
 
-## 🔒 Security
+```env
+VITE_API_URL=http://localhost:5000/api
+```
 
-- Password hashing with bcrypt
-- JWT token authentication
-- Protected API routes
-- Input validation
-- File type and size validation
+Create `ai-service/.env` only if you want optional LLM feedback:
 
-## 📄 License
+```env
+GOOGLE_API_KEY=
+OPENAI_API_KEY=
+```
 
-This project is licensed under the ISC License.
+## Run The Project
 
-## 🤝 Contributing
+From the root folder:
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```bash
+npm run dev
+```
+
+This starts:
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:5000`
+- AI service: `http://127.0.0.1:8000`
+
+## API Overview
+
+### Backend
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/resumes/upload`
+- `POST /api/analysis`
+- `GET /api/analysis`
+- `GET /api/analysis/:id/download`
+- `POST /api/interview/generate`
+
+### AI Service
+- `POST /api/analyzer/score`
+- `POST /api/resume/parse`
+- `POST /api/interview/generate-questions`
+- `POST /api/interview/evaluate-answer`
+
+## Important Notes
+
+- Use `ai-service` for all Python AI/ML logic.
+- Put all Python AI/ML changes inside `ai-service`.
+- Keep real API keys only in local `.env` files and never commit them.

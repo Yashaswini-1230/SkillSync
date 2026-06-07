@@ -6,6 +6,7 @@ import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Chatbot from './components/Chatbot';
+import InterviewReport from './pages/InterviewReport';
 
 // Pages
 import Signup from './pages/Signup';
@@ -96,6 +97,10 @@ function App() {
                 </PrivateRoute>
               }
             />
+            <Route
+  path="/interview-report"
+  element={<InterviewReport />}
+/>
             <Route path="/" element={<LandingPage />} />
           </Routes>
         </div>

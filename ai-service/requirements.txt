@@ -6,6 +6,7 @@ spacy
 sentence-transformers
 pymupdf
 langchain
+langchain-google-genai
 langchain-openai
 langchain-community
 langgraph

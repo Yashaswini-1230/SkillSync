@@ -1,85 +1,53 @@
-# SkillSync - Quick Start Guide
+# SkillSync Quick Start
 
-## 🚀 Get Started in 5 Minutes
-
-### Step 1: Install Dependencies
+## 1. Install Everything
 
 ```bash
-# Install all dependencies
 npm run install-all
 ```
 
-Or manually:
-```bash
-npm install
-cd backend && npm install && cd ..
-cd frontend && npm install && cd ..
-```
+## 2. Add Environment Files
 
-### Step 2: Set Up MongoDB
+`backend/.env`:
 
-1. Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) and create a free account
-2. Create a new cluster (free tier)
-3. Click "Connect" → "Connect your application"
-4. Copy the connection string
-
-### Step 3: Configure Environment
-
-**Backend** (`backend/.env`):
 ```env
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string_here
 JWT_SECRET=change_this_to_a_random_secret_key
 NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+AI_SERVICE_URL=http://127.0.0.1:8000
 ```
 
-**Frontend** (`frontend/.env`):
+`frontend/.env`:
+
 ```env
-REACT_APP_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:5000/api
 ```
 
-### Step 4: Start the Application
+`ai-service/.env` is optional for LLM feedback:
+
+```env
+GOOGLE_API_KEY=
+OPENAI_API_KEY=
+```
+
+## 3. Start The App
 
 ```bash
 npm run dev
 ```
 
-This starts both backend (port 5000) and frontend (port 3000).
+Open:
 
-### Step 5: Open Your Browser
+```text
+http://localhost:5173
+```
 
-Navigate to: **http://localhost:3000**
+## What Runs
 
-## ✅ What You Can Do
+- `backend` handles auth, resumes, saved data, reports, and API routes.
+- `frontend` is the React/Vite user interface.
+- `ai-service` handles resume scoring, semantic similarity, skill extraction, and AI interview endpoints.
 
-1. **Sign Up** - Create your account
-2. **Upload Resume** - Upload PDF or DOCX files
-3. **Analyze Resume** - Get ATS score and insights
-4. **Download Report** - Get detailed PDF analysis
-5. **Build Resume** - Create professional resumes
-6. **Interview Prep** - Generate interview questions
-
-## 🐛 Common Issues
-
-### MongoDB Connection Failed
-- Check your connection string
-- Make sure IP whitelist includes `0.0.0.0/0` in MongoDB Atlas
-- Verify database user has read/write permissions
-
-### Port Already in Use
-- Change PORT in `backend/.env`
-- Or kill the process using the port
-
-### Module Not Found
-- Delete `node_modules` and reinstall
-- Make sure you're in the correct directory
-
-## 📚 Next Steps
-
-- Read `SETUP.md` for detailed setup
-- Read `README.md` for full documentation
-- Check the code comments for implementation details
-
-## 🎉 You're Ready!
-
-Start building your resume analysis workflow!
+Use `ai-service` as the only Python AI service.

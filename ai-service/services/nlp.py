@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer, util
-import os
+from services.skill_extractor import compare_skills, extract_skills
 
 # Initialize model globally so it stays in memory
 MODEL_NAME = "all-mpnet-base-v2"
@@ -29,18 +29,17 @@ def compute_similarity(resume_text: str, job_description: str) -> float:
 
 def extract_skills_from_jd(job_description: str) -> list:
     """
-    A basic function to extract skills from JD to compare against resume.
-    In a real app, this might use LLM or an exhaustive ontology.
+    Extracts job skills with the production skill matcher.
     """
-    # Placeholder
-    return ["React", "Node.js", "Python", "MongoDB", "AWS"]
+    return extract_skills(job_description)
 
 def extract_missing_skills(resume_skills: list, jd_skills: list) -> list:
     """
     Identifies which skills from the JD are missing in the resume.
     """
-    # Simple set difference
-    # In reality, needs synonym resolution (e.g., JS == JavaScript)
     res_set = {s.lower() for s in resume_skills}
     missing = [skill for skill in jd_skills if skill.lower() not in res_set]
     return missing
+
+def analyze_skill_match(resume_text: str, job_description: str) -> dict:
+    return compare_skills(resume_text, job_description)

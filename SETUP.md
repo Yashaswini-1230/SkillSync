@@ -1,45 +1,60 @@
 # SkillSync Setup Guide
 
-## Quick Start
+## 1. Install Dependencies
 
-### 1. Install Dependencies
+From the project root:
 
 ```bash
-# Install root dependencies
-npm install
-
-# Install backend dependencies
-cd backend
-npm install
-
-# Install frontend dependencies
-cd ../frontend
-npm install
+npm run install-all
 ```
 
-### 2. Configure MongoDB
+This installs:
+- Root Node dependencies
+- Backend Node dependencies
+- Frontend Node dependencies
+- AI service Python dependencies
 
-1. Create a MongoDB Atlas account at https://www.mongodb.com/cloud/atlas
-2. Create a new cluster (free tier is fine)
-3. Get your connection string
-4. Create `backend/.env` file:
+If Python dependency installation fails, run it manually:
+
+```bash
+cd ai-service
+pip install -r requirements.txt
+```
+
+## 2. Configure Backend
+
+Create `backend/.env`:
 
 ```env
 PORT=5000
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/skillsync?retryWrites=true&w=majority
 JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
 NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+AI_SERVICE_URL=http://127.0.0.1:8000
+RAPIDAPI_KEY=
 ```
 
-### 3. Configure Frontend
+## 3. Configure Frontend
 
-Create `frontend/.env` file:
+Create `frontend/.env`:
 
 ```env
-REACT_APP_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:5000/api
 ```
 
-### 4. Start the Application
+## 4. Configure AI Service
+
+Create `ai-service/.env` if you want optional LLM feedback:
+
+```env
+GOOGLE_API_KEY=
+OPENAI_API_KEY=
+```
+
+The resume score and skill matching can still work without these keys.
+
+## 5. Start The Application
 
 From the root directory:
 
@@ -47,66 +62,36 @@ From the root directory:
 npm run dev
 ```
 
-This will start:
-- Backend server on http://localhost:5000
-- Frontend app on http://localhost:3000
+This starts:
+- Backend on `http://localhost:5000`
+- Frontend on `http://localhost:5173`
+- AI service on `http://127.0.0.1:8000`
 
-Or start them separately:
+## Run Services Separately
 
 ```bash
-# Terminal 1 - Backend
-cd backend
-npm run dev
-
-# Terminal 2 - Frontend
-cd frontend
-npm start
+npm run server
+npm run client
+npm run ai
 ```
 
 ## Troubleshooting
 
 ### MongoDB Connection Issues
-- Make sure your MongoDB Atlas IP whitelist includes `0.0.0.0/0` (for development)
-- Verify your connection string is correct
-- Check that your database user has read/write permissions
+- Check your MongoDB Atlas connection string.
+- Make sure your IP whitelist allows your current IP.
+- Verify that the database user has read/write permissions.
 
-### Port Already in Use
-- Change the PORT in `backend/.env` if 5000 is taken
-- Change React's port: `PORT=3001 npm start` in frontend
+### AI Service Not Available
+- Make sure `npm run ai` is running.
+- Check that `AI_SERVICE_URL=http://127.0.0.1:8000` is in `backend/.env`.
+- Install AI dependencies with `cd ai-service && pip install -r requirements.txt`.
 
-### File Upload Issues
-- Ensure `backend/uploads/resumes` directory exists
-- Check file permissions
-- Verify file size is under 10MB
+### Frontend Cannot Reach Backend
+- Make sure `VITE_API_URL=http://localhost:5000/api` is in `frontend/.env`.
+- Make sure `FRONTEND_URL=http://localhost:5173` is in `backend/.env`.
 
-### Missing Dependencies
-- Delete `node_modules` folders and `package-lock.json` files
-- Run `npm install` again in each directory
-
-## Production Deployment
-
-1. Set `NODE_ENV=production` in backend `.env`
-2. Use a strong `JWT_SECRET`
-3. Configure CORS properly for your domain
-4. Set up proper file storage (AWS S3, Cloudinary, etc.)
-5. Build frontend: `cd frontend && npm run build`
-6. Serve frontend build with a web server or integrate with backend
-
-## Features Checklist
-
-- ✅ User Authentication (Signup/Login)
-- ✅ Resume Upload (PDF/DOCX)
-- ✅ Resume Analysis with ATS Score
-- ✅ PDF Report Generation
-- ✅ Resume Builder
-- ✅ AI Interview Prep
-- ✅ Profile Management
-- ✅ Dashboard with Analytics
-
-## Next Steps
-
-1. Set up MongoDB Atlas
-2. Configure environment variables
-3. Install dependencies
-4. Start the application
-5. Create an account and upload your first resume!
+### Port Already In Use
+- Change `PORT` in `backend/.env` if `5000` is taken.
+- Change the Vite port in the frontend command if `5173` is taken.
+- Change the AI service port only if you also update `AI_SERVICE_URL`.

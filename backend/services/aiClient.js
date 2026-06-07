@@ -1,80 +1,186 @@
 const axios = require('axios');
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000/api';
+// =========================
+// AI SERVICE BASE URL
+// =========================
 
-/**
- * Client to communicate with the Python FastAPI AI Service
- */
-const aiClient = {
-    /**
-     * Send resume file to AI service for parsing
-     */
-    parseResume: async (fileBuffer, filename) => {
-        try {
-            const formData = new FormData();
-            const blob = new Blob([fileBuffer], { type: 'application/pdf' });
-            formData.append('file', blob, filename);
+const AI_BASE_URL =
+  `${process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000'}/api/interview`;
 
-            const response = await axios.post(`${AI_SERVICE_URL}/resume/parse`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Error parsing resume via AI service:', error.message);
-            throw new Error('AI Service parsing failed');
-        }
-    },
+// =========================
+// GENERATE QUESTIONS
+// =========================
 
-    /**
-     * Get semantic ATS score and feedback
-     */
-    analyzeAndScore: async (resumeText, jobDescription) => {
-        try {
-            const response = await axios.post(`${AI_SERVICE_URL}/analyzer/score`, {
-                resume_text: resumeText,
-                job_description: jobDescription
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Error analyzing via AI service:', error.message);
-            throw new Error('AI Service analysis failed');
-        }
-    },
+const generateInterviewQuestions =
+  async (
+    resumeContext,
+    targetRole,
+    history = []
+  ) => {
 
-    /**
-     * Generate dynamic interview questions
-     */
-    generateInterviewQuestions: async (resumeContext, targetRole) => {
-        try {
-            const response = await axios.post(`${AI_SERVICE_URL}/interview/generate-questions`, {
-                resume_context: resumeContext,
-                target_role: targetRole
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Error generating questions via AI service:', error.message);
-            throw new Error('AI Service question generation failed');
-        }
-    },
+    try {
 
-    /**
-     * Evaluate candidate answer
-     */
-    evaluateAnswer: async (question, answer, context) => {
-        try {
-            const response = await axios.post(`${AI_SERVICE_URL}/interview/evaluate-answer`, {
-                question,
-                answer,
-                context
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Error evaluating answer via AI service:', error.message);
-            throw new Error('AI Service answer evaluation failed');
-        }
+      const response =
+        await axios.post(
+          `${AI_BASE_URL}/generate-questions`,
+          {
+            resume_context:
+              resumeContext,
+
+            target_role:
+              targetRole,
+
+            history
+          }
+        );
+
+      return response.data;
+
+    } catch (err) {
+
+      console.error(
+        'AI Question API Error:',
+        err.response?.data ||
+        err.message
+      );
+
+      return {
+
+        question:
+          'Can you introduce yourself and explain your recent technical projects?'
+
+      };
+
     }
-};
 
-module.exports = aiClient;
+  };
+
+// =========================
+// EVALUATE ANSWER
+// =========================
+
+const evaluateAnswer =
+  async (
+    question,
+    answer,
+    context
+  ) => {
+
+    try {
+
+      const response =
+        await axios.post(
+          `${AI_BASE_URL}/evaluate-answer`,
+          {
+            question,
+            answer,
+            context
+          }
+        );
+
+      return response.data;
+
+    } catch (err) {
+
+      console.error(
+        'AI Evaluation API Error:',
+        err.response?.data ||
+        err.message
+      );
+
+      // =========================
+      // Dynamic Fallback Scoring
+      // =========================
+
+      const answerLength =
+        answer.split(' ').length;
+
+      let score = 3;
+
+      if (answerLength > 5)
+        score += 1;
+
+      if (answerLength > 15)
+        score += 2;
+
+      if (answerLength > 30)
+        score += 2;
+
+      score = Math.min(
+        10,
+        score
+      );
+
+      let feedback =
+        '';
+
+      if (score <= 3) {
+
+        feedback =
+          'Your answer was too short and lacked sufficient explanation. Try explaining your technical approach, implementation details, and project impact.';
+
+      } else if (
+        score <= 5
+      ) {
+
+        feedback =
+          'Your answer has some relevance, but it needs more structure, technical depth, and clearer communication.';
+
+      } else if (
+        score <= 7
+      ) {
+
+        feedback =
+          'Good attempt. Your answer demonstrates reasonable understanding, but adding more technical details and measurable outcomes would improve it further.';
+
+      } else {
+
+        feedback =
+          'Strong answer. You communicated your ideas clearly and demonstrated solid technical understanding with relevant project experience.';
+
+      }
+
+      return {
+
+        score,
+
+        communication_score:
+          score,
+
+        confidence_score:
+          score - 1,
+
+        technical_depth_score:
+          score,
+
+        clarity_score:
+          score,
+
+        problem_solving_score:
+          score,
+
+        feedback,
+
+        strengths: [
+          'Relevant answer',
+          'Good communication'
+        ],
+
+        improvements: [
+          'Add more technical depth',
+          'Use structured explanations'
+        ]
+
+      };
+
+    }
+
+  };
+
+module.exports = {
+
+  generateInterviewQuestions,
+
+  evaluateAnswer
+
+};

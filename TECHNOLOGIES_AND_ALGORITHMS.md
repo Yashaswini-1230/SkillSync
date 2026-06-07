@@ -36,12 +36,16 @@
 | **mammoth** | Extract text from DOCX resumes |
 | **PDFKit** | Generate PDF analysis reports for download |
 
-### NLP and ML
+### AI service and NLP/ML
 | Technology | Purpose |
 |------------|--------|
 | **natural** | TF-IDF vectors and tokenization for keyword-based similarity |
 | **compromise** | Lightweight NLP (nouns, etc.) for skill/phrase extraction in the main analysis engine |
 | **@xenova/transformers** | Sentence embeddings in the browser/Node via Transformers.js; model: **all-mpnet-base-v2** (mean pooling, normalized) for semantic resume–JD similarity |
+| **FastAPI** | Python AI service for analyzer, resume parsing, and interview AI routes |
+| **spaCy** | Resume parsing and basic entity extraction |
+| **sentence-transformers** | Semantic resume/job-description similarity in the Python AI service |
+| **Custom skill extractor** | Technical skill detection with aliases such as NodeJS -> Node.js and Mongo DB -> MongoDB |
 
 ### External APIs
 | Service | Purpose |

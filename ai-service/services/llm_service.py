@@ -54,22 +54,47 @@
     
 #     return response.content
 import os
+import json
 from dotenv import load_dotenv
 
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-
 load_dotenv()
-# print(os.getenv("GOOGLE_API_KEY"))
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    temperature=0.3,
-    google_api_key=os.getenv("GOOGLE_API_KEY")
-)
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    from langchain_core.prompts import PromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    llm = (
+        ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.3,
+            google_api_key=google_api_key
+        )
+        if google_api_key
+        else None
+    )
+except Exception as e:
+    print(f"LLM feedback disabled: {e}")
+    ChatGoogleGenerativeAI = None
+    PromptTemplate = None
+    StrOutputParser = None
+    llm = None
 
 def generate_resume_feedback(resume_text, job_description, missing_skills):
+    if not llm:
+        return {
+            "keyword_optimization_score": 0,
+            "formatting_score": 0,
+            "experience_relevance_score": 0,
+            "project_relevance_score": 0,
+            "leadership_score": 0,
+            "impact_score": 0,
+            "rewritten_bullets": [],
+            "feedback_summary": "LLM feedback is disabled. Configure GOOGLE_API_KEY to enable personalized feedback.",
+            "strengths": [],
+            "weaknesses": ["Personalized AI feedback is not configured"]
+        }
 
     template = """
     You are an expert AI Resume Reviewer and Technical Recruiter.
@@ -83,16 +108,27 @@ def generate_resume_feedback(resume_text, job_description, missing_skills):
     Missing Skills:
     {missing_skills}
 
-    Provide:
-    1. ATS Match Score
-    2. Resume Strengths
-    3. Weak Areas
-    4. Missing Skills Analysis
-    5. Personalized Suggestions
-    6. Improved Resume Bullet Points
-    7. Final Hiring Readiness Summary
-
-    Be highly specific and personalized.
+    Provide a highly specific and personalized evaluation.
+    Return your response EXCLUSIVELY as a valid JSON object with the following exact keys. Do NOT include Markdown backticks around the JSON. Do not include any other text.
+    {{
+        "keyword_optimization_score": 85,
+        "formatting_score": 90,
+        "experience_relevance_score": 80,
+        "project_relevance_score": 75,
+        "leadership_score": 60,
+        "impact_score": 70,
+        "rewritten_bullets": [
+            {{
+                "original": "Did some coding",
+                "improved": "Developed scalable microservices using Node.js, improving system performance by 30%",
+                "reason": "Quantifies impact and specifies technologies used"
+            }}
+        ],
+        "feedback_summary": "Overall good resume but lacks quantifiable metrics in the experience section.",
+        "strengths": ["Strong technical skills", "Relevant degree"],
+        "weaknesses": ["Missing ATS keywords", "Formatting is inconsistent"]
+    }}
+    Make sure to provide 3-5 rewritten bullets based on weak points in their resume. Score them honestly out of 100 based on ATS standards.
     """
 
     prompt = PromptTemplate(
@@ -114,4 +150,25 @@ def generate_resume_feedback(resume_text, job_description, missing_skills):
         "missing_skills": ", ".join(missing_skills)
     })
 
-    return response
+    try:
+        # Clean response in case LLM added markdown backticks
+        clean_response = response.strip()
+        if clean_response.startswith("```json"):
+            clean_response = clean_response[7:-3]
+        elif clean_response.startswith("```"):
+            clean_response = clean_response[3:-3]
+        return json.loads(clean_response)
+    except Exception as e:
+        print(f"JSON Parse Error: {e}")
+        return {
+            "keyword_optimization_score": 50,
+            "formatting_score": 50,
+            "experience_relevance_score": 50,
+            "project_relevance_score": 50,
+            "leadership_score": 50,
+            "impact_score": 50,
+            "rewritten_bullets": [],
+            "feedback_summary": response,
+            "strengths": [],
+            "weaknesses": []
+        }

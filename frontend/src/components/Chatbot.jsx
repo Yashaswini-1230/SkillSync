@@ -22,8 +22,6 @@
 //   const [userResumes, setUserResumes] = useState([]);
 //   const messagesEndRef = useRef(null);
 
-//   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
 //   // Comprehensive responses for SkillSync features
 //   const skillSyncResponses = {
 //     dashboard: [

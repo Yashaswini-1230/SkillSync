@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import resume, interview, analyzer
+from routers.transcribe import router as transcribe_router
 import uvicorn
 from dotenv import load_dotenv
 
@@ -18,6 +19,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+app.include_router(
+    transcribe_router,
+    prefix="/api"
 )
 
 app.include_router(resume.router, prefix="/api/resume", tags=["Resume"])

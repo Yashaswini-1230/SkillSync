@@ -7,10 +7,8 @@ from typing import Dict, Any
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
-    # Fallback or instructions to download
-    import subprocess
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
+    print("spaCy model en_core_web_sm not found. Using blank English pipeline.")
+    nlp = spacy.blank("en")
 
 def extract_text_from_pdf(file_path: str) -> str:
     """Extracts raw text from a PDF file using PyMuPDF."""
