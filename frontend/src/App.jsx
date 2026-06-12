@@ -20,6 +20,7 @@ import InterviewPrep from './pages/InterviewPrep';
 import Profile from './pages/Profile';
 import Jobs from './pages/Jobs';
 import LandingPage from './pages/LandingPage';
+import AnalysisHistory from "./pages/AnalysisHistory";
 
 function App() {
   return (
@@ -57,6 +58,11 @@ function App() {
                 </PrivateRoute>
               }
             />
+            <Route
+    path="/analysis-history"
+    element={<PrivateRoute>
+    <AnalysisHistory /> </PrivateRoute>}
+/>
             <Route
               path="/builder"
               element={

@@ -1,174 +1,279 @@
-# import os
-# from langchain_openai import ChatOpenAI
-# from langchain_core.prompts import PromptTemplate
-# # from langchain.chains import LLMChain
-# from dotenv import load_dotenv
-
-# load_dotenv()
-
-# # We default to ChatOpenAI but you can switch to ChatGoogleGenerativeAI
-# # if using Gemini API, or ChatAnthropic. 
-# # Make sure OPENAI_API_KEY is in .env
-# try:
-#     llm = ChatOpenAI(temperature=0.7, model_name="gpt-4o-mini")
-# except Exception as e:
-#     print(f"Failed to initialize LLM: {e}")
-#     llm = None
-
-# def generate_resume_feedback(resume_text: str, job_description: str, missing_skills: list) -> str:
-#     """
-#     Uses LLM to generate personalized, contextual feedback.
-#     """
-#     if not llm:
-#         return "LLM not initialized. Please check your API keys."
-        
-#     template = """
-#     You are an expert AI Career Coach and Senior Technical Recruiter.
-    
-#     Job Description:
-#     {job_description}
-    
-#     Candidate Resume:
-#     {resume_text}
-    
-#     Missing Skills Identified:
-#     {missing_skills}
-    
-#     Provide a professional, highly personalized evaluation of the candidate's resume for this specific job.
-#     Do NOT give generic advice. Reference their actual projects and experience.
-#     Point out exactly where they lack requirements and suggest specific bullet-point rewrites.
-#     """
-    
-#     prompt = PromptTemplate(
-#         input_variables=["job_description", "resume_text", "missing_skills"],
-#         template=template
-#     )
-    
-#     chain = prompt | llm
-    
-#     response = chain.invoke({
-#         "job_description": job_description,
-#         "resume_text": resume_text,
-#         "missing_skills": ", ".join(missing_skills)
-#     })
-    
-#     return response.content
+# python
 import os
 import json
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
 
-try:
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    from langchain_core.prompts import PromptTemplate
-    from langchain_core.output_parsers import StrOutputParser
+# ===============================
+# Initialize Groq LLM
+# ===============================
 
-    google_api_key = os.getenv("GOOGLE_API_KEY")
+try:
+    from langchain_groq import ChatGroq
+
+    groq_api_key = os.getenv("GROQ_API_KEY")
+
     llm = (
-        ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            temperature=0.3,
-            google_api_key=google_api_key
+        ChatGroq(
+            model="llama-3.1-8b-instant",
+            temperature=0.2,
+            groq_api_key=groq_api_key
         )
-        if google_api_key
+        if groq_api_key
         else None
     )
+
+    print("GROQ API FOUND:", bool(groq_api_key))
+
+    if groq_api_key:
+        print("KEY PREFIX:", groq_api_key[:10])
+
 except Exception as e:
-    print(f"LLM feedback disabled: {e}")
-    ChatGoogleGenerativeAI = None
-    PromptTemplate = None
-    StrOutputParser = None
+    print("Groq initialization error:", e)
     llm = None
 
-def generate_resume_feedback(resume_text, job_description, missing_skills):
+
+# ===============================
+# Default fallback response
+# ===============================
+
+def get_default_response(message="LLM generation failed."):
+
+    return {
+        "overall_ats_score": 0,
+
+        "contact_information": {},
+
+        "hard_skills": {},
+
+        "soft_skills": {},
+
+        "job_title_match": {},
+
+        "education_match": {},
+
+        "experience_match": {},
+
+        "searchability": {},
+
+        "resume_tone": {},
+
+        "measurable_results": {},
+
+        "web_presence": {},
+
+        "strengths": [],
+
+        "weaknesses": [],
+
+        "recruiter_tips": [],
+
+        "rewritten_bullets": [],
+
+        "feedback_summary": message
+    }
+
+
+# ===============================
+# Main Feedback Generator
+# ===============================
+
+def generate_resume_feedback(
+    resume_text,
+    job_description,
+    missing_skills
+):
+
     if not llm:
-        return {
-            "keyword_optimization_score": 0,
-            "formatting_score": 0,
-            "experience_relevance_score": 0,
-            "project_relevance_score": 0,
-            "leadership_score": 0,
-            "impact_score": 0,
-            "rewritten_bullets": [],
-            "feedback_summary": "LLM feedback is disabled. Configure GOOGLE_API_KEY to enable personalized feedback.",
-            "strengths": [],
-            "weaknesses": ["Personalized AI feedback is not configured"]
-        }
+        return get_default_response(
+            "Groq API Key not configured."
+        )
 
-    template = """
-    You are an expert AI Resume Reviewer and Technical Recruiter.
+    prompt = f"""
+You are a Senior ATS Resume Reviewer and Technical Recruiter.
 
-    Job Description:
-    {job_description}
+Your task is to evaluate this resume exactly like Jobscan ATS.
 
-    Candidate Resume:
-    {resume_text}
+Be strict, realistic, and professional.
 
-    Missing Skills:
-    {missing_skills}
+Analyze the following:
 
-    Provide a highly specific and personalized evaluation.
-    Return your response EXCLUSIVELY as a valid JSON object with the following exact keys. Do NOT include Markdown backticks around the JSON. Do not include any other text.
-    {{
-        "keyword_optimization_score": 85,
-        "formatting_score": 90,
-        "experience_relevance_score": 80,
-        "project_relevance_score": 75,
-        "leadership_score": 60,
-        "impact_score": 70,
-        "rewritten_bullets": [
-            {{
-                "original": "Did some coding",
-                "improved": "Developed scalable microservices using Node.js, improving system performance by 30%",
-                "reason": "Quantifies impact and specifies technologies used"
-            }}
-        ],
-        "feedback_summary": "Overall good resume but lacks quantifiable metrics in the experience section.",
-        "strengths": ["Strong technical skills", "Relevant degree"],
-        "weaknesses": ["Missing ATS keywords", "Formatting is inconsistent"]
-    }}
-    Make sure to provide 3-5 rewritten bullets based on weak points in their resume. Score them honestly out of 100 based on ATS standards.
-    """
+1. Overall ATS Score (0–100)
+2. Contact Information Quality
+3. Hard Skills Match
+4. Soft Skills Match
+5. Job Title Match
+6. Education Match
+7. Experience Match
+8. Resume Searchability
+9. Resume Tone
+10. Measurable Results and Metrics
+11. Web Presence (LinkedIn, GitHub, Portfolio)
+12. Strengths
+13. Weaknesses
+14. Recruiter Tips
+15. Rewrite weak resume bullets professionally.
 
-    prompt = PromptTemplate(
-        input_variables=[
-            "job_description",
-            "resume_text",
-            "missing_skills"
-        ],
-        template=template
-    )
+JOB DESCRIPTION:
+{job_description}
 
-    parser = StrOutputParser()
+RESUME:
+{resume_text}
 
-    chain = prompt | llm | parser
+MISSING SKILLS:
+{", ".join(missing_skills)}
 
-    response = chain.invoke({
-        "job_description": job_description,
-        "resume_text": resume_text,
-        "missing_skills": ", ".join(missing_skills)
-    })
+Return ONLY VALID JSON.
+
+JSON FORMAT:
+
+{{
+    "overall_ats_score": 85,
+
+    "contact_information": {{
+        "score": 90,
+        "issues": [],
+        "recommendations": []
+    }},
+
+    "hard_skills": {{
+        "matched": [],
+        "missing": [],
+        "score": 80
+    }},
+
+    "soft_skills": {{
+        "matched": [],
+        "missing": [],
+        "score": 75
+    }},
+
+    "job_title_match": {{
+        "score": 80,
+        "feedback": ""
+    }},
+
+    "education_match": {{
+        "score": 85,
+        "feedback": ""
+    }},
+
+    "experience_match": {{
+        "score": 75,
+        "feedback": ""
+    }},
+
+    "searchability": {{
+        "score": 80,
+        "issues": []
+    }},
+
+    "resume_tone": {{
+        "score": 80,
+        "feedback": ""
+    }},
+
+    "measurable_results": {{
+        "score": 70,
+        "missing_metrics": true,
+        "feedback": ""
+    }},
+
+    "web_presence": {{
+        "linkedin": true,
+        "github": true,
+        "portfolio": false
+    }},
+
+    "strengths": [],
+
+    "weaknesses": [],
+
+    "recruiter_tips": [],
+
+    "rewritten_bullets": [
+        {{
+            "original": "",
+            "improved": "",
+            "reason": ""
+        }}
+    ],
+
+    "feedback_summary": ""
+}}
+
+IMPORTANT RULES:
+- Return JSON ONLY.
+- Do NOT use markdown.
+- Do NOT wrap JSON inside ```json blocks.
+- Give realistic ATS scores.
+- Provide at least 3 strengths.
+- Provide at least 3 weaknesses.
+- Provide at least 3 recruiter tips.
+- Provide 3 rewritten bullets.
+"""
 
     try:
-        # Clean response in case LLM added markdown backticks
-        clean_response = response.strip()
-        if clean_response.startswith("```json"):
-            clean_response = clean_response[7:-3]
-        elif clean_response.startswith("```"):
-            clean_response = clean_response[3:-3]
-        return json.loads(clean_response)
+
+        response = llm.invoke(prompt)
+
+        content = response.content.strip()
+
+        print("\n========== RAW LLM RESPONSE ==========")
+        print(content)
+        print("======================================\n")
+
+        # Remove markdown wrappers if present
+        content = re.sub(
+            r"^```json",
+            "",
+            content,
+            flags=re.IGNORECASE
+        )
+
+        content = re.sub(
+            r"```$",
+            "",
+            content
+        )
+
+        content = content.strip()
+
+        feedback = json.loads(content)
+
+        print(
+            "LLM JSON parsed successfully."
+        )
+
+        return feedback
+
+    except json.JSONDecodeError as e:
+
+        print(
+            "JSON PARSE ERROR:",
+            e
+        )
+
+        print(
+            "Invalid JSON received:"
+        )
+
+        print(content)
+
+        return get_default_response(
+            f"Invalid JSON returned by LLM: {str(e)}"
+        )
+
     except Exception as e:
-        print(f"JSON Parse Error: {e}")
-        return {
-            "keyword_optimization_score": 50,
-            "formatting_score": 50,
-            "experience_relevance_score": 50,
-            "project_relevance_score": 50,
-            "leadership_score": 50,
-            "impact_score": 50,
-            "rewritten_bullets": [],
-            "feedback_summary": response,
-            "strengths": [],
-            "weaknesses": []
-        }
+
+        print(
+            "LLM ERROR:",
+            e
+        )
+
+        return get_default_response(
+            f"LLM generation failed: {str(e)}"
+        )
+

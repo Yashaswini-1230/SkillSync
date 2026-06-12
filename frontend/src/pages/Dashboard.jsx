@@ -4,6 +4,24 @@ import { useAuth } from '../context/AuthContext';
 import { FiUpload, FiSearch, FiDownload, FiCalendar } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
+import { motion } from "framer-motion";
+
+import {
+  Target,
+  FileText,
+  CheckCircle,
+  TrendingUp
+} from "lucide-react";
+
+import {
+  ResponsiveContainer,
+  LineChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Line
+} from "recharts";
 const Dashboard = () => {
   const { user } = useAuth();
   const [resumes, setResumes] = useState([]);
@@ -15,15 +33,20 @@ const Dashboard = () => {
     avgAtsScore: 0
   });
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
     useEffect(() => {
         const fetchAnalyses = async () => {
             try {
-                const res = await axios.get('/api/analysis', {
-                    headers: { 'x-auth-token': localStorage.getItem('token') }
-                });
-                setAnalyses(res.data);
+                const API_URL = import.meta.env.VITE_API_URL;
+
+const res = await axios.get(`${API_URL}/analysis`, {
+    headers: {
+        'x-auth-token': localStorage.getItem('token')
+    }
+});
+                console.log("Analysis API Response:", res.data);
+                setAnalyses(Array.isArray(res.data) ? res.data : []);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -106,28 +129,121 @@ const Dashboard = () => {
                         </div>
                     </motion.div>
 
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-bold text-gray-900 mb-6">Recent Analyses</h3>
-                        <div className="space-y-4">
-                            {analyses.slice(0, 5).map(analysis => (
-                                <div key={analysis._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-blue-200 transition">
-                                    <div>
-                                        <h4 className="font-semibold text-gray-900">{analysis.jobRole}</h4>
-                                        <p className="text-sm text-gray-500">{new Date(analysis.analyzedAt).toLocaleDateString()}</p>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                            (analysis.atsScore || analysis.ats_score) >= 80 ? 'bg-green-100 text-green-700' : 
-                                            (analysis.atsScore || analysis.ats_score) >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                                        }`}>
-                                            {analysis.atsScore || analysis.ats_score}%
-                                        </span>
-                                        <a href={`/api/analysis/${analysis._id}/download`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm font-medium">Report</a>
-                                    </div>
-                                </div>
-                            ))}
+                    {/* Recent Analyses */}
+<motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ delay: 0.2 }}
+    className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"
+>
+    <h3 className="text-lg font-bold text-gray-900 mb-6">
+        Recent Analyses
+    </h3>
+
+    <div className="space-y-4">
+
+        {analyses.length === 0 ? (
+
+            <div className="text-center py-8 text-gray-500">
+                No analyses found.
+            </div>
+
+        ) : (
+
+            analyses.slice(0, 5).map((analysis) => (
+
+                <div
+                    key={analysis._id}
+                    className="p-5 bg-gray-50 rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-md transition"
+                >
+
+                    <div className="flex justify-between items-start">
+
+                        <div className="space-y-2">
+
+                            {/* Resume Name */}
+                            <div className="flex items-center gap-2">
+                                <FileText
+                                    size={16}
+                                    className="text-blue-600"
+                                />
+
+                                <p className="font-semibold text-gray-900">
+                                    {analysis.resumeId?.originalName ||
+                                        "Resume"}
+                                </p>
+                            </div>
+
+                            {/* Job Role */}
+                            <div className="flex items-center gap-2">
+                                <Target
+                                    size={16}
+                                    className="text-indigo-600"
+                                />
+
+                                <p className="text-gray-700">
+                                    {analysis.jobRole}
+                                </p>
+                            </div>
+
+                            {/* Date */}
+                            <div className="flex items-center gap-2">
+                                <FiCalendar className="text-gray-500" />
+
+                                <p className="text-sm text-gray-500">
+                                    {new Date(
+                                        analysis.analyzedAt
+                                    ).toLocaleDateString()}
+                                </p>
+                            </div>
+
                         </div>
-                    </motion.div>
+
+                        <div className="flex flex-col items-end gap-3">
+
+                            {/* ATS Score */}
+                            <span
+                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                    (analysis.atsScore ||
+                                        analysis.ats_score) >= 80
+                                        ? "bg-green-100 text-green-700"
+                                        : (analysis.atsScore ||
+                                              analysis.ats_score) >= 60
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : "bg-red-100 text-red-700"
+                                }`}
+                            >
+                                ATS Score:{" "}
+                                {analysis.atsScore ||
+                                    analysis.ats_score}
+                                %
+                            </span>
+
+                            {/* Download Report */}
+                            <a
+                                href={`${API_URL}/analysis/${analysis._id}/download`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                                <FiDownload />
+
+                                Download Report
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            ))
+
+        )}
+
+    </div>
+
+</motion.div>
                 </div>
             </div>
         </div>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from typing import Dict, Any
 import os
 import shutil
-from services.parser import extract_text_from_pdf, parse_resume_text
+from services.parser import  parse_resume_text
 
 router = APIRouter()
 

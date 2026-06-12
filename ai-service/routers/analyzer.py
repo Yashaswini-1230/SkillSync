@@ -24,6 +24,8 @@ async def analyze_and_score(request: AnalyzeRequest):
         skill_score = skill_match["skill_score"]
 
         feedback_data = generate_resume_feedback(request.resume_text, request.job_description, missing)
+        print("FEEDBACK DATA:")
+        print(feedback_data)    
 
         keyword_score = skill_score
         ats_score = round((match_percentage * 0.4) + (skill_score * 0.5) + (keyword_score * 0.1), 2)
@@ -47,7 +49,38 @@ async def analyze_and_score(request: AnalyzeRequest):
             "leadership_score": feedback_data.get("leadership_score", 0),
             "impact_score": feedback_data.get("impact_score", 0),
             "rewritten_bullets": feedback_data.get("rewritten_bullets", []),
-            "weaknesses": feedback_data.get("weaknesses", [])
+            "weaknesses": feedback_data.get("weaknesses", []),
+            "overall_ats_score": feedback_data.get("overall_ats_score", ats_score),
+
+"contact_information": feedback_data.get("contact_information", {}),
+
+"hard_skills": feedback_data.get("hard_skills", {}),
+
+"soft_skills": feedback_data.get("soft_skills", {}),
+
+"job_title_match": feedback_data.get("job_title_match", {}),
+
+"education_match": feedback_data.get("education_match", {}),
+
+"experience_match": feedback_data.get("experience_match", {}),
+
+"searchability": feedback_data.get("searchability", {}),
+
+"resume_tone": feedback_data.get("resume_tone", {}),
+
+"measurable_results": feedback_data.get("measurable_results", {}),
+
+"web_presence": feedback_data.get("web_presence", {}),
+
+"recruiter_tips": feedback_data.get("recruiter_tips", [])
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("ANALYZER ERROR:")
+        print(str(e))
+        import traceback
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+    )

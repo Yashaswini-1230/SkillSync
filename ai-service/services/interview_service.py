@@ -12,35 +12,43 @@ from langchain_core.messages import (
     SystemMessage
 )
 
-from langchain_google_genai import (
-    ChatGoogleGenerativeAI
-)
+from langchain_groq import ChatGroq
 
 load_dotenv()
 
 # =========================
-# GEMINI INITIALIZATION
+# GROQ INITIALIZATION
 # =========================
 
 try:
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0.7,
-        google_api_key=os.getenv(
-            "GOOGLE_API_KEY"
+    groq_api_key = os.getenv(
+        "GROQ_API_KEY"
+    )
+
+    llm = (
+        ChatGroq(
+            model="llama-3.1-8b-instant",
+            temperature=0.7,
+            groq_api_key=groq_api_key
         )
+        if groq_api_key
+        else None
+    )
+
+    print(
+        "GROQ API FOUND:",
+        bool(groq_api_key)
     )
 
 except Exception as e:
 
     print(
-        "LLM Initialization Error:",
+        "Groq Initialization Error:",
         e
     )
 
     llm = None
-
 # =========================
 # CLEAN JSON
 # =========================

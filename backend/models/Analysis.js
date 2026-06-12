@@ -39,6 +39,36 @@ const analysisSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
+  strengths: [String],
+weaknesses: [String],
+recruiterTips: [String],
+
+contactInformation: Object,
+hardSkills: Object,
+softSkills: Object,
+searchability: Object,
+resumeTone: Object,
+educationMatch: Object,
+experienceMatch: Object,
+jobTitleMatch: Object,
+measurableResults: Object,
+webPresence: Object,
+
+rewrittenBullets: [Object],
+
+semanticScore: Number,
+
+skillMatchPercentage: Number,
+
+experienceScore: Number,
+
+formattingScore: Number,
+
+keywordOptimizationScore: Number,
+
+leadershipScore: Number,
+
+impactScore: Number,
   analyzedAt: {
     type: Date,
     default: Date.now

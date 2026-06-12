@@ -11,9 +11,9 @@ import {
   FiMessageSquare,
   FiUser,
   FiLogOut,
-  FiBriefcase
+  FiBriefcase,
+  FiClock
 } from 'react-icons/fi';
-
 const Sidebar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -30,15 +30,15 @@ const Sidebar = () => {
   if (!user) return null;
 
   const menuItems = [
-    { path: '/dashboard', icon: FiHome, label: 'Dashboard' },
-    { path: '/upload', icon: FiUpload, label: 'Upload Resume' },
-    { path: '/analyze', icon: FiSearch, label: 'Analyze Resume' },
-    { path: '/builder', icon: FiFileText, label: 'Resume Builder' },
-    { path: '/saved-resumes', icon: FiFileText, label: 'Saved Resumes' },
-    { path: '/jobs', icon: FiBriefcase, label: 'Jobs & Internships' },
-    { path: '/interview', icon: FiMessageSquare, label: 'AI Interview Prep' },
-  ];
-
+  { path: '/dashboard', icon: FiHome, label: 'Dashboard' },
+  { path: '/upload', icon: FiUpload, label: 'Upload Resume' },
+  { path: '/analyze', icon: FiSearch, label: 'Analyze Resume' },
+  { path: '/analysis-history', icon: FiClock, label: 'Analysis History' },
+  { path: '/builder', icon: FiFileText, label: 'Resume Builder' },
+  { path: '/saved-resumes', icon: FiFileText, label: 'Saved Resumes' },
+  { path: '/jobs', icon: FiBriefcase, label: 'Jobs & Internships' },
+  { path: '/interview', icon: FiMessageSquare, label: 'AI Interview Prep' },
+];
   const isActive = (path) => location.pathname === path;
 
   return (

@@ -80,11 +80,14 @@ router.post(
 try {
 
   const aiResponse = await axios.post(`${AI_SERVICE_URL}/api/analyzer/score`, {
-    resume_text: resume.extractedText,
-    job_description: jobDescription,
-  });
+  resume_text: resume.extractedText,
+  job_description: jobDescription,
+});
 
-  ai = aiResponse.data;
+ai = aiResponse.data;
+
+console.log("AI RESPONSE:");
+console.log(JSON.stringify(ai, null, 2));
 
 } catch (err) {
 
@@ -116,81 +119,139 @@ try {
       /* ===============================
          3️⃣ MERGE RESULTS
       =============================== */
+const finalATSScore = ai.semantic_similarity
+  ? Math.round(
+      (
+        (ai.semantic_similarity || 0) * 0.3 +
+        (ai.skill_score || 0) * 0.4 +
+        Math.max(
+          100 - ((ai.missing_skills?.length || 0) * 5),
+          0
+        ) * 0.3
+      )
+    )
+  : (ruleAnalysis?.atsScore || 50);
 
      const analysisResult = {
 
-  // Prefer rule engine if ML score is poor
-  atsScore:
-    ruleAnalysis?.atsScore && !isNaN(ruleAnalysis.atsScore)
-      ? ruleAnalysis.atsScore
-      : ai.ats_score ?? 50,
+  // atsScore:
+  //   ai.ats_score ||
+  //   ruleAnalysis?.atsScore ||
+  //   ai.overall_ats_score ||
+  //   50,
+//   atsScore: Math.round(
+//     (
+//         (ai.ats_score || 0) * 0.7 +
+//         (ai.overall_ats_score || 0) * 0.3
+//     )
+// ),
+atsScore: finalATSScore,
 
   matchingSkills:
     ruleAnalysis?.matchingSkills?.length > 0
       ? ruleAnalysis.matchingSkills
-      : ai.matching_skills ?? [],
+      : ai.matching_skills || [],
 
   missingSkills:
     ruleAnalysis?.missingSkills?.length > 0
       ? ruleAnalysis.missingSkills
-      : ai.missing_skills ?? [],
+      : ai.missing_skills || [],
 
-  semanticScore: ai.semantic_similarity ?? 0,
+  semanticScore:
+    ai.semantic_similarity || 0,
 
-  skillMatchPercentage: ai.skill_score ?? 0,
+  skillMatchPercentage:
+    ai.skill_score || 0,
 
-  experienceScore: ai.experience_relevance_score ?? 0,
+  experienceScore:
+    ai.experience_relevance_score || 0,
 
-  sectionScore: ruleAnalysis?.sectionScore ?? 0,
+  sectionScore:
+    ruleAnalysis?.sectionScore || 0,
 
-  missingSections: ruleAnalysis?.missingSections ?? [],
+  missingSections:
+    ruleAnalysis?.missingSections || [],
 
-  grammarIssues: ruleAnalysis?.grammarIssues ?? [],
+  grammarIssues:
+    ruleAnalysis?.grammarIssues || [],
 
-  suggestions: ruleAnalysis?.suggestions ?? [],
+  suggestions:
+    ruleAnalysis?.suggestions || [],
 
-  jobRoleFit: ruleAnalysis?.jobRoleFit ?? 0
+  jobRoleFit:
+    ruleAnalysis?.jobRoleFit || 0,
+
+  strengths:
+    ai.strengths || [],
+
+  weaknesses:
+    ai.weaknesses || [],
+
+  recruiterTips:
+    ai.recruiter_tips || [],
+
+  contactInformation:
+    ai.contact_information || {},
+
+  hardSkills:
+    ai.hard_skills || {},
+
+  softSkills:
+    ai.soft_skills || {},
+
+  searchability:
+    ai.searchability || {},
+
+  resumeTone:
+    ai.resume_tone || {},
+
+  educationMatch:
+    ai.education_match || {},
+
+  experienceMatch:
+    ai.experience_match || {},
+
+  jobTitleMatch:
+    ai.job_title_match || {},
+
+  measurableResults:
+    ai.measurable_results || {},
+
+  webPresence:
+    ai.web_presence || {},
+
+  rewrittenBullets:
+    ai.rewritten_bullets || [],
+
+  formattingScore:
+    ai.formatting_score || 0,
+
+  keywordOptimizationScore:
+    ai.keyword_optimization_score || 0,
+
+  leadershipScore:
+    ai.leadership_score || 0,
+
+  impactScore:
+    ai.impact_score || 0,
+  feedback:
+    ai.feedback ||
+    ai.feedback_summary ||
+    "Resume analysis completed successfully.",
 
 };
-console.log("AI RESULT:", ai);
-console.log("RULE RESULT:", ruleAnalysis);
-console.log("FINAL RESULT:", analysisResult);
-
-      /* ===============================
-         4️⃣ GENERATE FEEDBACK
-      =============================== */
-
-      let feedback = [];
-
-try {
-
-  feedback = await generateAtsFeedback({
-    semantic_score: analysisResult.semanticScore,
-    skill_match_percentage: analysisResult.skillMatchPercentage,
-    missing_skills: analysisResult.missingSkills,
-    experience_gap: analysisResult.experienceScore,
-    section_score: analysisResult.sectionScore,
-  });
-
-} catch (err) {
-
-  console.log("Feedback generation error:", err.message);
-
-}
 
       /* ===============================
          5️⃣ SAVE TO DATABASE
       =============================== */
 
       const analysis = new Analysis({
-        userId: req.user._id,
-        resumeId: resume._id,
-        jobRole,
-        jobDescription,
-        ...analysisResult,
-        feedback
-      });
-
+  userId: req.user._id,
+  resumeId: resume._id,
+  jobRole,
+  jobDescription,
+  ...analysisResult
+});
       await analysis.save();
 
       res.json({
@@ -246,59 +307,415 @@ router.get("/:id", auth, async (req, res) => {
 /* =====================================================
    DOWNLOAD PDF REPORT
 ===================================================== */
+/* =====================================================
+   DOWNLOAD PDF REPORT
+===================================================== */
 
-router.get("/:id/download", auth, async (req, res) => {
+router.get("/:id/download", async (req, res) => {
   try {
-    const analysis = await Analysis.findOne({
-      _id: req.params.id,
-      userId: req.user._id,
-    }).populate("resumeId", "originalName");
+    const analysis = await Analysis.findById(req.params.id)
+      .populate("resumeId", "originalName");
 
     if (!analysis) {
-      return res.status(404).json({ message: "Analysis not found" });
+      return res.status(404).json({
+        message: "Analysis not found"
+      });
     }
 
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({
+      margin: 50,
+      size: "A4"
+    });
 
-    const filename = `resume-analysis-${analysis._id}.pdf`;
+    const filename = `SkillSync_Report_${analysis._id}.pdf`;
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader(
+      "Content-Type",
+      "application/pdf"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`
+    );
 
     doc.pipe(res);
 
-    doc.fontSize(24).text("SkillSync Resume Analysis Report", { align: "center" });
+    /* ==========================
+       HEADER
+    ========================== */
+
+    doc
+      .fontSize(24)
+      .fillColor("#1E3A8A")
+      .text(
+        "SkillSync ATS Resume Analysis Report",
+        {
+          align: "center"
+        }
+      );
+
+    doc.moveDown(0.5);
+
+    doc
+      .fontSize(11)
+      .fillColor("black")
+      .text(
+        `Resume: ${analysis.resumeId?.originalName || "Resume"}`
+      );
+
+    doc.text(
+      `Job Role: ${analysis.jobRole || "N/A"}`
+    );
+
+    doc.text(
+      `Analysis Date: ${
+        analysis.analyzedAt
+          ? new Date(
+              analysis.analyzedAt
+            ).toLocaleDateString()
+          : "N/A"
+      }`
+    );
+
     doc.moveDown();
 
-    doc.fontSize(14).text(`Resume: ${analysis.resumeId?.originalName || "Resume"}`);
-    doc.text(`Job Role: ${analysis.jobRole}`);
-    doc.text(`ATS Score: ${analysis.atsScore}%`);
+    /* ==========================
+       ATS SCORE
+    ========================== */
+
+    /* ==========================
+   ATS SCORE
+========================== */
+
+doc
+  .fontSize(20)
+  .fillColor("#16A34A")
+  .text(
+    `Overall ATS Score: ${analysis.atsScore || 0}%`
+  );
+
+doc.moveDown();
+
+/* ==========================
+   DETAILED SCORES
+========================== */
+
+doc
+  .fontSize(18)
+  .fillColor("#1E3A8A")
+  .text("Detailed Analysis Scores");
+
+doc.moveDown(0.5);
+
+doc
+  .fontSize(11)
+  .fillColor("black")
+  .text(`Semantic Match: ${analysis.semanticScore ?? 0}%`);
+
+doc.text(
+  `Skill Match: ${analysis.skillMatchPercentage ?? 0}%`
+);
+
+doc.text(
+  `Formatting Score: ${analysis.formattingScore ?? "N/A"}`
+);
+
+doc.text(
+  `Leadership Score: ${analysis.leadershipScore ?? "N/A"}`
+);
+
+doc.text(
+  `Impact Score: ${analysis.impactScore ?? "N/A"}`
+);
+
+doc.text(
+  `Experience Relevance: ${
+    analysis.experienceMatch?.score ??
+    analysis.experienceScore ??
+    0
+  }%`
+);
+
+doc.text(
+  `Searchability Score: ${
+    analysis.searchability?.score ?? "N/A"
+  }`
+);
+
+doc.text(
+  `Resume Tone Score: ${
+    analysis.resumeTone?.score ?? "N/A"
+  }`
+);
+
+doc.text(
+  `Education Match Score: ${
+    analysis.educationMatch?.score ?? "N/A"
+  }`
+);
+
+doc.text(
+  `Job Title Match Score: ${
+    analysis.jobTitleMatch?.score ?? "N/A"
+  }`
+);
+
+doc.text(
+  `Measurable Results Score: ${
+    analysis.measurableResults?.score ?? "N/A"
+  }`
+);
+
+doc.moveDown();
+
+/* ==========================
+   MATCHING SKILLS
+========================== */
+    /* ==========================
+       MATCHING SKILLS
+    ========================== */
+
+    doc
+      .fontSize(18)
+      .fillColor("#1E3A8A")
+      .text("Matching Skills");
+
+    doc.moveDown(0.5);
+
+    if (analysis.matchingSkills?.length) {
+
+      analysis.matchingSkills.forEach(skill => {
+        doc
+          .fontSize(11)
+          .fillColor("black")
+          .text(`• ${skill}`);
+      });
+
+    } else {
+
+      doc.text("No matching skills found.");
+
+    }
+
     doc.moveDown();
 
-    doc.fontSize(18).text("Matching Skills");
-    analysis.matchingSkills.forEach(skill => doc.text(`• ${skill}`));
+    /* ==========================
+       MISSING SKILLS
+    ========================== */
+
+    doc
+      .fontSize(18)
+      .fillColor("#DC2626")
+      .text("Missing Skills");
+
+    doc.moveDown(0.5);
+
+    if (analysis.missingSkills?.length) {
+
+      analysis.missingSkills.forEach(skill => {
+        doc
+          .fontSize(11)
+          .fillColor("black")
+          .text(`• ${skill}`);
+      });
+
+    } else {
+
+      doc.text("No missing skills found.");
+
+    }
 
     doc.moveDown();
 
-    doc.fontSize(18).text("Missing Skills");
-    analysis.missingSkills.forEach(skill => doc.text(`• ${skill}`));
+    /* ==========================
+       STRENGTHS
+    ========================== */
+
+    doc
+      .fontSize(18)
+      .fillColor("#15803D")
+      .text("Strengths");
+
+    doc.moveDown(0.5);
+
+    if (analysis.strengths?.length) {
+
+      analysis.strengths.forEach(item => {
+        doc
+          .fontSize(11)
+          .fillColor("black")
+          .text(`• ${item}`);
+      });
+
+    } else {
+
+      doc.text("No strengths identified.");
+
+    }
 
     doc.moveDown();
 
-    doc.fontSize(18).text("Missing Resume Sections");
-    analysis.missingSections.forEach(section => doc.text(`• ${section}`));
+    /* ==========================
+       WEAKNESSES
+    ========================== */
+
+    doc
+      .fontSize(18)
+      .fillColor("#DC2626")
+      .text("Areas for Improvement");
+
+    doc.moveDown(0.5);
+
+    if (analysis.weaknesses?.length) {
+
+      analysis.weaknesses.forEach(item => {
+        doc
+          .fontSize(11)
+          .fillColor("black")
+          .text(`• ${item}`);
+      });
+
+    } else {
+
+      doc.text("No weaknesses identified.");
+
+    }
 
     doc.moveDown();
 
-    doc.fontSize(18).text("Resume Suggestions");
-    analysis.suggestions.forEach(s => doc.text(`• ${s}`));
+    /* ==========================
+       RECRUITER TIPS
+    ========================== */
+
+    doc
+      .fontSize(18)
+      .fillColor("#1E3A8A")
+      .text("Recruiter Recommendations");
+
+    doc.moveDown(0.5);
+
+    const tips = [
+      ...(analysis.suggestions || []),
+      ...(analysis.recruiterTips || [])
+    ];
+
+    if (tips.length > 0) {
+
+      tips.forEach(tip => {
+
+        doc
+          .fontSize(11)
+          .fillColor("black")
+          .text(`• ${tip}`);
+
+      });
+
+    } else {
+
+      doc.text("No recommendations available.");
+
+    }
+
+    doc.moveDown();
+
+    /* ==========================
+       REWRITTEN BULLETS
+    ========================== */
+
+    doc
+      .fontSize(18)
+      .fillColor("#1E3A8A")
+      .text("Improved Resume Bullet Points");
+
+    doc.moveDown(0.5);
+
+    if (analysis.rewrittenBullets?.length) {
+
+      analysis.rewrittenBullets.forEach(
+        (bullet, index) => {
+
+          doc
+            .fontSize(12)
+            .fillColor("#DC2626")
+            .text(`Original ${index + 1}:`);
+
+          doc
+            .fontSize(11)
+            .fillColor("black")
+            .text(bullet.original);
+
+          doc.moveDown(0.2);
+
+          doc
+            .fontSize(12)
+            .fillColor("#16A34A")
+            .text("Improved:");
+
+          doc
+            .fontSize(11)
+            .fillColor("black")
+            .text(bullet.improved);
+
+          doc.moveDown(0.2);
+
+          doc
+            .fontSize(11)
+            .fillColor("#6B7280")
+            .text(
+              `Reason: ${bullet.reason}`
+            );
+
+          doc.moveDown();
+        }
+      );
+
+    } else {
+
+      doc.text(
+        "No rewritten bullet points available."
+      );
+
+    }
+
+    /* ==========================
+       SUMMARY
+    ========================== */
+
+    doc.addPage();
+
+    doc
+      .fontSize(18)
+      .fillColor("#1E3A8A")
+      .text("Final Recruiter Summary");
+
+    doc.moveDown();
+
+    doc
+      .fontSize(12)
+      .fillColor("black")
+      .text(
+        analysis.feedback ||
+        "Resume analysis completed successfully."
+      );
 
     doc.end();
 
   } catch (error) {
-    console.error("PDF error:", error);
-    res.status(500).json({ message: "Error generating PDF" });
+
+    console.error(
+      "PDF Generation Error:",
+      error
+    );
+
+    res.status(500).json({
+      message:
+        "Error generating PDF report"
+    });
+
   }
 });
+
+
 
 module.exports = router;
