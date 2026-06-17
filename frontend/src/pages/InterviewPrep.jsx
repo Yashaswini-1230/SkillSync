@@ -29,16 +29,42 @@ import {
 } from 'lucide-react';
 
 import toast from 'react-hot-toast';
-
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL ||
-  'http://localhost:5000';
+import {
+  SERVER_URL,
+  SOCKET_URL
+} from '../config/api';
 
 const API_URL =
-  'http://localhost:5000';
+  SERVER_URL;
 
 const SESSION_KEY =
   'skillsync_interview_session';
+
+const REPORT_KEY =
+  'skillsync_interview_report';
+
+const REPORTS_KEY =
+  'skillsync_interview_reports';
+
+const saveInterviewReport = (report) => {
+  localStorage.setItem(
+    REPORT_KEY,
+    JSON.stringify(report)
+  );
+
+  const reports =
+    JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]');
+
+  reports.unshift({
+    ...report,
+    completedAt: new Date().toISOString()
+  });
+
+  localStorage.setItem(
+    REPORTS_KEY,
+    JSON.stringify(reports.slice(0, 20))
+  );
+};
 
 const InterviewPrep = () => {
 
@@ -277,6 +303,8 @@ const InterviewPrep = () => {
   restoredSocket.on(
     'interview_completed',
     (report) => {
+
+      saveInterviewReport(report);
 
       localStorage.removeItem(
         SESSION_KEY
@@ -590,6 +618,8 @@ const InterviewPrep = () => {
     newSocket.on(
       'interview_completed',
       (report) => {
+
+        saveInterviewReport(report);
 
         localStorage.removeItem(
           SESSION_KEY

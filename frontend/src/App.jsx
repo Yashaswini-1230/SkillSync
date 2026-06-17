@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
+import { SidebarProvider } from './context/SidebarContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
@@ -26,6 +27,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <SidebarProvider>
         <div className="min-h-screen bg-gray-50">
           <Toaster position="top-right" />
           <Navbar />
@@ -105,11 +107,16 @@ function App() {
             />
             <Route
   path="/interview-report"
-  element={<InterviewReport />}
+  element={
+    <PrivateRoute>
+      <InterviewReport />
+    </PrivateRoute>
+  }
 />
             <Route path="/" element={<LandingPage />} />
           </Routes>
         </div>
+        </SidebarProvider>
       </Router>
     </AuthProvider>
   );

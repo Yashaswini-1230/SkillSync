@@ -3,13 +3,12 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { FiFileText, FiEdit2, FiTrash2, FiDownload, FiPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config/api';
 
 const SavedResumes = () => {
   const [savedResumes, setSavedResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-
-  const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     fetchSavedResumes();

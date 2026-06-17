@@ -2,14 +2,8 @@ fastapi
 uvicorn
 pydantic
 python-multipart
-spacy
 sentence-transformers
 pymupdf
-langchain
-langchain-google-genai
-langchain-openai
-langchain-community
-langgraph
-chromadb
+langchain-groq
 python-dotenv
-requests
+openai

@@ -7,6 +7,7 @@ import {
     Download,
     Search
 } from "lucide-react";
+import { API_URL } from "../config/api";
 
 const AnalysisHistory = () => {
 
@@ -14,10 +15,6 @@ const AnalysisHistory = () => {
     const [filteredAnalyses, setFilteredAnalyses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-
-    const API_URL =
-        import.meta.env.VITE_API_URL ||
-        "http://localhost:5000/api";
 
     useEffect(() => {
         fetchAnalyses();
@@ -73,11 +70,32 @@ const AnalysisHistory = () => {
         }
     };
 
+    const downloadReport = async (analysis) => {
+        try {
+            const response = await axios.get(
+                `${API_URL}/analysis/${analysis._id}/download`,
+                {
+                    responseType: "blob"
+                }
+            );
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `SkillSync_Report_${analysis._id}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Failed to download report:", error);
+        }
+    };
+
     if (loading) {
 
         return (
 
-            <div className="min-h-screen flex justify-center items-center">
+            <div className="min-h-screen page-content pt-20 flex justify-center items-center bg-gray-50">
 
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
 
@@ -88,7 +106,7 @@ const AnalysisHistory = () => {
 
     return (
 
-        <div className="min-h-screen bg-gray-50 p-6">
+        <div className="min-h-screen page-content pt-20 bg-gray-50 px-4 sm:px-6 lg:px-8 py-8 pb-20">
 
             <div className="max-w-7xl mx-auto">
 
@@ -291,10 +309,9 @@ const AnalysisHistory = () => {
 
                                             <td className="px-6 py-4 text-center">
 
-                                                <a
-                                                    href={`${API_URL}/analysis/${analysis._id}/download`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => downloadReport(analysis)}
                                                     className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
                                                 >
 
@@ -302,7 +319,7 @@ const AnalysisHistory = () => {
 
                                                     Report
 
-                                                </a>
+                                                </button>
 
                                             </td>
 
