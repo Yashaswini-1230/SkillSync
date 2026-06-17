@@ -1,49 +1,16 @@
 const express = require("express");
-const { body, validationResult } = require("express-validator");
+const { body } = require("express-validator");
 const Analysis = require("../models/Analysis");
 const Resume = require("../models/Resume");
 const auth = require("../middleware/auth");
 const PDFDocument = require("pdfkit");
-const multer = require("multer");
-const path = require("path");
-const fsp = require("fs").promises;
 const axios = require("axios");
 
 const { analyzeResume } = require("../utils/analysisEngine");
-const { extractResumeText } = require("../utils/pdfParser");
-const { generateAtsFeedback } = require("../services/atsFeedback.service");
 
 const router = express.Router();
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
-
-/* ===============================
-   Multer configuration
-================================ */
-
-const atsStorage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../uploads/ats");
-
-    try {
-      await fsp.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      cb(error, null);
-    }
-  },
-
-  filename: (req, file, cb) => {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname || "");
-    cb(null, `ats-${unique}${ext}`);
-  },
-});
-
-const atsUpload = multer({
-  storage: atsStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
 
 /* =====================================================
    POST /api/analysis
@@ -311,9 +278,12 @@ router.get("/:id", auth, async (req, res) => {
    DOWNLOAD PDF REPORT
 ===================================================== */
 
-router.get("/:id/download", async (req, res) => {
+router.get("/:id/download", auth, async (req, res) => {
   try {
-    const analysis = await Analysis.findById(req.params.id)
+    const analysis = await Analysis.findOne({
+      _id: req.params.id,
+      userId: req.user._id,
+    })
       .populate("resumeId", "originalName");
 
     if (!analysis) {

@@ -34,6 +34,12 @@ const analysisSchema = new mongoose.Schema({
     severity: String
   }],
   suggestions: [String],
+  feedback: String,
+  sectionScore: {
+    type: Number,
+    min: 0,
+    max: 100
+  },
   jobRoleFit: {
     type: Number,
     min: 0,

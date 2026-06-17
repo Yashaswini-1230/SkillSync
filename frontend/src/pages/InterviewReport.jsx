@@ -31,6 +31,17 @@ import {
   useNavigate
 } from 'react-router-dom';
 
+const getStoredReport = () => {
+  try {
+    return JSON.parse(
+      localStorage.getItem('skillsync_interview_report') ||
+      'null'
+    );
+  } catch {
+    return null;
+  }
+};
+
 const InterviewReport = () => {
 
   const location =
@@ -40,7 +51,8 @@ const InterviewReport = () => {
     useNavigate();
 
   const report =
-    location.state?.report;
+    location.state?.report ||
+    getStoredReport();
     console.log(report);
 
   // =========================

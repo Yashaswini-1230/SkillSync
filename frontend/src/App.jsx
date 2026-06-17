@@ -107,7 +107,11 @@ function App() {
             />
             <Route
   path="/interview-report"
-  element={<InterviewReport />}
+  element={
+    <PrivateRoute>
+      <InterviewReport />
+    </PrivateRoute>
+  }
 />
             <Route path="/" element={<LandingPage />} />
           </Routes>

@@ -1,4 +1,8 @@
-require('dotenv').config();
+const path = require('path');
+
+require('dotenv').config({
+  path: path.resolve(__dirname, '.env')
+});
 
 const express = require('express');
 
@@ -102,6 +106,13 @@ app.use(
 
 const MONGODB_URI =
   process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error(
+    'MongoDB Connection Error: MONGODB_URI is missing. Check backend/.env.'
+  );
+  process.exit(1);
+}
 
 mongoose.connect(MONGODB_URI)
 

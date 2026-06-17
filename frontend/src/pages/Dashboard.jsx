@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { FiUpload, FiSearch, FiDownload, FiCalendar } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config/api';
 
 import { motion } from "framer-motion";
 
@@ -22,6 +23,16 @@ import {
   Tooltip as RechartsTooltip,
   Line
 } from "recharts";
+
+const readStoredInterviewCount = () => {
+    try {
+        const reports = JSON.parse(localStorage.getItem('skillsync_interview_reports') || '[]');
+        return Array.isArray(reports) ? reports.length : 0;
+    } catch {
+        return 0;
+    }
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   const [resumes, setResumes] = useState([]);
@@ -33,18 +44,10 @@ const Dashboard = () => {
     avgAtsScore: 0
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
     useEffect(() => {
         const fetchAnalyses = async () => {
             try {
-                const API_URL = import.meta.env.VITE_API_URL;
-
-const res = await axios.get(`${API_URL}/analysis`, {
-    headers: {
-        'x-auth-token': localStorage.getItem('token')
-    }
-});
+const res = await axios.get(`${API_URL}/analysis`);
                 console.log("Analysis API Response:", res.data);
                 setAnalyses(Array.isArray(res.data) ? res.data : []);
             } catch (err) {
@@ -67,6 +70,28 @@ const res = await axios.get(`${API_URL}/analysis`, {
     }));
 
     const avgScore = analyses.length ? Math.round(analyses.reduce((acc, curr) => acc + (curr.atsScore || curr.ats_score || 0), 0) / analyses.length) : 0;
+    const skillGrowth = analyses.length > 1
+        ? Math.round((analyses[0].atsScore || analyses[0].ats_score || 0) - (analyses[analyses.length - 1].atsScore || analyses[analyses.length - 1].ats_score || 0))
+        : 0;
+    const completedInterviews = readStoredInterviewCount();
+
+    const downloadReport = async (analysis) => {
+        try {
+            const response = await axios.get(`${API_URL}/analysis/${analysis._id}/download`, {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `SkillSync_Report_${analysis._id}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            toast.error('Failed to download report');
+        }
+    };
 
     return (
         <div className="min-h-screen page-content pt-20 bg-gray-50 px-4 sm:px-6 lg:px-8 py-8 pb-20">
@@ -100,15 +125,15 @@ const res = await axios.get(`${API_URL}/analysis`, {
                             <h3 className="text-gray-500 font-medium">Mock Interviews</h3>
                             <div className="w-10 h-10 bg-green-50 text-green-600 flex items-center justify-center rounded-full"><CheckCircle size={20} /></div>
                         </div>
-                        <p className="text-3xl font-bold mt-4 text-gray-900">0</p>
+                        <p className="text-3xl font-bold mt-4 text-gray-900">{completedInterviews}</p>
                     </motion.div>
 
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-gray-500 font-medium">Skill Growth</h3>
+                            <h3 className="text-gray-500 font-medium">ATS Growth</h3>
                             <div className="w-10 h-10 bg-orange-50 text-orange-600 flex items-center justify-center rounded-full"><TrendingUp size={20} /></div>
                         </div>
-                        <p className="text-3xl font-bold mt-4 text-gray-900">+12%</p>
+                        <p className="text-3xl font-bold mt-4 text-gray-900">{skillGrowth > 0 ? `+${skillGrowth}` : skillGrowth}%</p>
                     </motion.div>
                 </div>
 
@@ -220,16 +245,14 @@ const res = await axios.get(`${API_URL}/analysis`, {
                             </span>
 
                             {/* Download Report */}
-                            <a
-                                href={`${API_URL}/analysis/${analysis._id}/download`}
-                                target="_blank"
-                                rel="noreferrer"
+                            <button
+                                onClick={() => downloadReport(analysis)}
                                 className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
                             >
                                 <FiDownload />
 
                                 Download Report
-                            </a>
+                            </button>
 
                         </div>
 
