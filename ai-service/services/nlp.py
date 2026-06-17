@@ -2,7 +2,7 @@ from sentence_transformers import SentenceTransformer, util
 from services.skill_extractor import compare_skills, extract_skills
 
 # Initialize model globally so it stays in memory
-MODEL_NAME = "all-mpnet-base-v2"
+MODEL_NAME = "all-MiniLM-L6-v2"
 try:
     print(f"Loading SentenceTransformer model: {MODEL_NAME}...")
     model = SentenceTransformer(MODEL_NAME)
